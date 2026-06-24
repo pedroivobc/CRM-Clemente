@@ -1,4 +1,4 @@
-import { ArrowRight, Shield, Star, TrendingUp } from 'lucide-react'
+import { ArrowRight, CalendarCheck } from 'lucide-react'
 import { LinkButton, AnchorButton } from '@/components/ui/link-button'
 
 export default function Hero() {
@@ -6,70 +6,78 @@ export default function Hero() {
   const message = encodeURIComponent('Olá! Gostaria de fazer uma simulação de financiamento imobiliário.')
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-green-900 text-white">
-      <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-green-500 blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full bg-blue-500 blur-3xl" />
+    <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0D0B09 0%, #1A1410 60%, #110F0C 100%)' }}>
+      {/* Subtle gold glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/3 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: '#B39533' }} />
+        <div className="absolute bottom-0 right-1/4 w-64 h-64 rounded-full opacity-5 blur-3xl" style={{ background: '#B39533' }} />
       </div>
+
+      {/* Gold top line */}
+      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, transparent, #B39533, transparent)' }} />
 
       <div className="relative container mx-auto px-4 lg:px-8 py-24 lg:py-36">
         <div className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 bg-green-700/30 border border-green-500/30 rounded-full px-4 py-1.5 text-sm text-green-300 mb-6">
-            <Star className="h-3.5 w-3.5 fill-green-400 text-green-400" />
-            Especialistas em financiamento habitacional
+
+          {/* Eyebrow */}
+          <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs tracking-widest mb-8"
+            style={{ border: '1px solid rgba(179,149,51,0.4)', color: '#B39533', background: 'rgba(179,149,51,0.08)' }}>
+            ASSESSORIA IMOBILIÁRIA · SÃO PAULO
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-light leading-tight mb-6" style={{ color: '#FFFFFF', fontFamily: 'Georgia, serif' }}>
             Realize o sonho da{' '}
-            <span className="text-green-400">casa própria</span>{' '}
+            <span style={{ color: '#B39533' }}>casa própria</span>{' '}
+            <br className="hidden sm:block" />
             com quem entende do assunto
           </h1>
 
-          <p className="text-lg text-gray-300 leading-relaxed mb-10 max-w-2xl">
-            Somos especialistas em assessoria imobiliária, correspondente bancário e
-            despachante imobiliário. Cuidamos de todo o processo de financiamento para
-            você, do início ao registro.
+          <p className="text-lg leading-relaxed mb-10 max-w-xl" style={{ color: '#9B9490' }}>
+            Mais de 10 anos conectando famílias ao imóvel certo — do financiamento ao
+            registro em cartório, cuidamos de cada detalhe por você.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 mb-16">
             <LinkButton
               href="/simulador"
               size="lg"
-              className="bg-green-600 hover:bg-green-700 text-white font-semibold text-base px-8 border-green-600"
+              className="font-medium px-8 text-white"
+              style={{ background: '#B39533', borderColor: '#B39533' } as React.CSSProperties}
             >
               Simular Financiamento <ArrowRight className="ml-2 h-4 w-4" />
             </LinkButton>
             <AnchorButton
-              href={`https://wa.me/${whatsapp}?text=${message}`}
+              href="https://calendar.app.google/AgKHtxDWpGcoZE3m9"
               target="_blank"
               rel="noopener noreferrer"
               size="lg"
               variant="outline"
-              className="border-white/30 text-white hover:bg-white/10 text-base px-8"
+              className="font-medium px-8"
+              style={{ borderColor: 'rgba(179,149,51,0.5)', color: '#B39533' } as React.CSSProperties}
             >
-              Falar com Especialista
+              <CalendarCheck className="mr-2 h-4 w-4" />
+              Agendar Atendimento
             </AnchorButton>
           </div>
 
-          <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-8 max-w-sm" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '2rem' }}>
             {[
-              { icon: Shield, label: 'Processo seguro', desc: 'Acompanhamos cada etapa do seu financiamento' },
-              { icon: TrendingUp, label: 'Melhor taxa', desc: 'Comparamos bancos para você ter a melhor oferta' },
-              { icon: Star, label: 'Atendimento personalizado', desc: 'Consultoria dedicada do início ao fim' },
-            ].map(({ icon: Icon, label, desc }) => (
-              <div key={label} className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-green-700/30 shrink-0">
-                  <Icon className="h-5 w-5 text-green-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-white text-sm">{label}</p>
-                  <p className="text-gray-400 text-xs mt-0.5">{desc}</p>
-                </div>
+              { value: '500+', label: 'financiamentos' },
+              { value: 'R$120M+', label: 'em crédito' },
+              { value: '98%', label: 'satisfação' },
+            ].map(({ value, label }) => (
+              <div key={label}>
+                <p className="text-xl font-light" style={{ color: '#B39533', fontFamily: 'Georgia, serif' }}>{value}</p>
+                <p className="text-xs mt-1" style={{ color: '#5E5651' }}>{label}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Bottom gold line */}
+      <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, rgba(179,149,51,0.3), transparent)' }} />
     </section>
   )
 }

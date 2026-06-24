@@ -153,7 +153,7 @@ export default function SimulatorForm() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
       {/* Form */}
-      <Card className="lg:col-span-3 border border-gray-100 shadow-sm">
+      <Card className="lg:col-span-3 bg-white" style={{ outline: '1px solid #E8E3DC' }}>
         <CardContent className="p-6 lg:p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -312,7 +312,8 @@ export default function SimulatorForm() {
               type="submit"
               disabled={loading}
               size="lg"
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold border-green-600"
+              className="w-full text-white font-semibold"
+              style={{ background: '#B39533', borderColor: '#B39533' } as React.CSSProperties}
             >
               {loading ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Calculando...</>
@@ -327,51 +328,49 @@ export default function SimulatorForm() {
       {/* Result */}
       <div className="lg:col-span-2">
         {!result ? (
-          <Card className="border-2 border-dashed border-gray-200 h-full">
-            <CardContent className="flex flex-col items-center justify-center h-full py-16 text-center text-gray-400">
-              <div className="p-4 rounded-full bg-gray-100 mb-4">
-                <CheckCircle2 className="h-8 w-8 text-gray-300" />
+          <Card className="h-full" style={{ border: '2px dashed #E8E3DC', background: '#FAFAF8' }}>
+            <CardContent className="flex flex-col items-center justify-center h-full py-16 text-center">
+              <div className="p-4 rounded-full mb-4" style={{ background: '#F0EDE8' }}>
+                <CheckCircle2 className="h-8 w-8" style={{ color: '#C9AA3E', opacity: 0.4 }} />
               </div>
-              <p className="font-medium text-gray-500">Preencha o formulário</p>
-              <p className="text-sm mt-1">O resultado da simulação aparecerá aqui</p>
+              <p className="font-medium" style={{ color: '#5E5651' }}>Preencha o formulário</p>
+              <p className="text-sm mt-1" style={{ color: '#9B9490' }}>O resultado aparecerá aqui</p>
             </CardContent>
           </Card>
         ) : (
           <div className="space-y-4">
-            <Card className="border border-green-200 bg-green-50">
+            <Card style={{ border: '1px solid #E8E3DC', background: '#FAFAF8' }}>
               <CardContent className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <h3 className="font-bold text-green-800">Resultado da Simulação</h3>
+                <div className="flex items-center gap-2 mb-5">
+                  <CheckCircle2 className="h-5 w-5" style={{ color: '#B39533' }} />
+                  <h3 className="font-semibold" style={{ color: '#1A1612' }}>Resultado da Simulação</h3>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-green-200">
-                    <span className="text-sm text-gray-600">Valor financiado estimado</span>
-                    <span className="font-bold text-gray-900">{formatBRL(result.financedValue)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-green-200">
-                    <span className="text-sm text-gray-600">Parcela aproximada</span>
-                    <span className="font-bold text-green-700 text-lg">{formatBRL(result.estimatedInstallment)}/mês</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-green-200">
-                    <span className="text-sm text-gray-600">Percentual de entrada</span>
-                    <span className="font-semibold">{result.downPaymentPercent.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm text-gray-600">Programa sugerido</span>
-                    <Badge
-                      variant="secondary"
-                      className={result.program === 'MCMV' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}
-                    >
+                <div className="space-y-0">
+                  {[
+                    { label: 'Valor financiado estimado', value: formatBRL(result.financedValue) },
+                    { label: 'Parcela aproximada', value: `${formatBRL(result.estimatedInstallment)}/mês`, highlight: true },
+                    { label: 'Percentual de entrada', value: `${result.downPaymentPercent.toFixed(1)}%` },
+                  ].map(({ label, value, highlight }) => (
+                    <div key={label} className="flex justify-between items-center py-3" style={{ borderBottom: '1px solid #E8E3DC' }}>
+                      <span className="text-sm" style={{ color: '#7A7068' }}>{label}</span>
+                      <span className={`font-semibold ${highlight ? 'text-lg' : ''}`}
+                        style={{ color: highlight ? '#B39533' : '#1A1612' }}>{value}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center py-3">
+                    <span className="text-sm" style={{ color: '#7A7068' }}>Programa sugerido</span>
+                    <Badge variant="secondary"
+                      className={result.program === 'MCMV' ? '' : ''}
+                      style={{ background: 'rgba(179,149,51,0.12)', color: '#8C7425', borderColor: 'transparent' }}>
                       {result.program}
                     </Badge>
                   </div>
                 </div>
 
-                <p className="text-xs text-gray-500 mt-4 p-3 bg-white rounded-lg border border-green-100">
-                  ⚠️ Esta é uma simulação preliminar e estimada. Os valores reais dependem de análise
-                  bancária, avaliação do imóvel e demais condições contratuais.
+                <p className="text-xs mt-4 p-3 rounded" style={{ color: '#9B9490', background: '#F0EDE8' }}>
+                  ⚠️ Simulação preliminar. Os valores reais dependem de análise bancária,
+                  avaliação do imóvel e condições contratuais.
                 </p>
               </CardContent>
             </Card>
@@ -381,14 +380,15 @@ export default function SimulatorForm() {
               target="_blank"
               rel="noopener noreferrer"
               size="lg"
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold border-green-500 justify-center"
+              className="w-full text-white font-semibold justify-center"
+              style={{ background: '#25D366', borderColor: '#25D366' } as React.CSSProperties}
             >
               <MessageCircle className="mr-2 h-4 w-4" />
               Continuar pelo WhatsApp
             </AnchorButton>
 
-            <p className="text-center text-xs text-gray-400">
-              Um especialista vai analisar sua simulação e entrar em contato
+            <p className="text-center text-xs" style={{ color: '#9B9490' }}>
+              Um especialista analisará sua simulação e entrará em contato
             </p>
           </div>
         )}

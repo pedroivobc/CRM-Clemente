@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 140" fill="none">
+  <!-- C lettermark -->
+  <circle cx="68" cy="70" r="52" stroke="#B39533" stroke-width="11" fill="none" stroke-linecap="round"
+    stroke-dasharray="280 60"
+    transform="rotate(-30 68 70)" />
+  <!-- Brand name -->
+  <text x="140" y="78" font-family="Georgia, 'Times New Roman', serif" font-size="52"
+    font-weight="400" letter-spacing="-0.5" fill="#3D3530">clemente</text>
+  <!-- Subtitle -->
+  <text x="140" y="104" font-family="Georgia, 'Times New Roman', serif" font-size="18"
+    font-weight="400" letter-spacing="2" fill="#7A7068">assessoria imob.</text>
+</svg>

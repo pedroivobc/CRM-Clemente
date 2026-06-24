@@ -2,17 +2,17 @@ const steps = [
   {
     number: '01',
     title: 'Simulação Online',
-    description: 'Preencha o simulador com seus dados e receba uma estimativa imediata de financiamento.',
+    description: 'Preencha nosso simulador e receba em segundos uma estimativa personalizada de financiamento.',
   },
   {
     number: '02',
     title: 'Análise Personalizada',
-    description: 'Nossa equipe analisa seu perfil e identifica o banco e programa ideal para você.',
+    description: 'Nossa equipe avalia seu perfil e identifica o banco e programa habitacional mais vantajoso.',
   },
   {
     number: '03',
     title: 'Documentação Completa',
-    description: 'Cuidamos de toda a burocracia: checagem documental, análise jurídica e submissão ao banco.',
+    description: 'Cuidamos da checagem documental, análise jurídica e submissão da proposta ao banco.',
   },
   {
     number: '04',
@@ -23,31 +23,30 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="py-20 bg-gray-50">
+    <section className="py-24 bg-white">
       <div className="container mx-auto px-4 lg:px-8">
-        <div className="text-center mb-14">
-          <p className="text-green-600 font-semibold text-sm tracking-wide uppercase mb-2">Como funciona</p>
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+        <div className="text-center mb-16">
+          <p className="text-xs font-semibold tracking-widest mb-3" style={{ color: '#B39533' }}>COMO FUNCIONA</p>
+          <h2 className="text-3xl lg:text-4xl font-light mb-4" style={{ color: '#1A1612', fontFamily: 'Georgia, serif' }}>
             Do primeiro contato até as chaves na mão
           </h2>
-          <p className="text-gray-500 max-w-xl mx-auto">
-            Um processo transparente, guiado por especialistas em cada etapa da sua jornada.
-          </p>
+          <div className="h-px w-16 mx-auto" style={{ background: '#B39533' }} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {steps.map((step, i) => (
             <div key={step.number} className="relative">
+              {/* Connector line */}
               {i < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-8 left-full w-full h-0.5 bg-green-200 z-0 -translate-x-4" />
+                <div className="hidden lg:block absolute top-7 left-[calc(100%_-_16px)] w-8 h-px"
+                  style={{ background: 'linear-gradient(90deg, #B39533, rgba(179,149,51,0.2))' }} />
               )}
-              <div className="relative z-10">
-                <div className="w-16 h-16 rounded-2xl bg-green-600 text-white flex items-center justify-center text-xl font-bold mb-4 shadow-md shadow-green-200">
-                  {step.number}
-                </div>
-                <h3 className="font-bold text-gray-900 mb-2">{step.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{step.description}</p>
+              <div className="mb-5 inline-flex items-center justify-center w-14 h-14 rounded-full text-xl font-light"
+                style={{ background: '#0D0B09', color: '#B39533', fontFamily: 'Georgia, serif', border: '1px solid #2A2520' }}>
+                {step.number}
               </div>
+              <h3 className="font-medium mb-2" style={{ color: '#1A1612' }}>{step.title}</h3>
+              <p className="text-sm leading-relaxed" style={{ color: '#7A7068' }}>{step.description}</p>
             </div>
           ))}
         </div>

@@ -3,7 +3,7 @@ import Hero from '@/components/sections/Hero'
 import ServicesOverview from '@/components/sections/ServicesOverview'
 import StatsSection from '@/components/sections/StatsSection'
 import HowItWorks from '@/components/sections/HowItWorks'
-import TestimonialsSection from '@/components/sections/TestimonialsSection'
+import GoogleReviews from '@/components/sections/GoogleReviews'
 import CTABanner from '@/components/sections/CTABanner'
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export default function HomePage() {
       <ServicesOverview />
       <StatsSection />
       <HowItWorks />
-      <TestimonialsSection />
+      <GoogleReviews />
       <CTABanner />
     </>
   )

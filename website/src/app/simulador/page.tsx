@@ -3,26 +3,32 @@ import SimulatorForm from '@/components/simulator/SimulatorForm'
 
 export const metadata: Metadata = {
   title: 'Simulador de Financiamento Imobiliário',
-  description: 'Simule seu financiamento imobiliário gratuitamente. Descubra o valor da parcela, programa elegível e as melhores condições para seu perfil.',
+  description: 'Simule seu financiamento imobiliário gratuitamente. Descubra a parcela estimada, programa elegível e as melhores condições para seu perfil.',
 }
 
 export default function SimuladorPage() {
   return (
-    <div className="bg-gray-50 min-h-screen py-16">
-      <div className="container mx-auto px-4 lg:px-8">
-        <div className="text-center mb-12">
-          <p className="text-green-600 font-semibold text-sm tracking-wide uppercase mb-2">Simulação Gratuita</p>
-          <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
-            Simulador de Financiamento Imobiliário
+    <div style={{ background: '#F7F4EF', minHeight: '100vh' }}>
+      {/* Header */}
+      <section className="py-16 relative" style={{ background: '#0D0B09' }}>
+        <div className="h-px absolute top-0 left-0 right-0" style={{ background: 'linear-gradient(90deg, transparent, #B39533, transparent)' }} />
+        <div className="container mx-auto px-4 lg:px-8 text-center">
+          <p className="text-xs font-semibold tracking-widest mb-3" style={{ color: '#B39533' }}>GRATUITO E SEM COMPROMISSO</p>
+          <h1 className="text-4xl font-light mb-4" style={{ color: '#FFFFFF', fontFamily: 'Georgia, serif' }}>
+            Simulador de Financiamento
           </h1>
-          <p className="text-gray-500 max-w-xl mx-auto">
-            Preencha os dados abaixo para receber uma estimativa personalizada.
-            Nossa equipe entra em contato para dar continuidade ao processo.
+          <p className="text-sm max-w-xl mx-auto" style={{ color: '#7A7068' }}>
+            Preencha os dados abaixo e receba uma estimativa personalizada.
+            Um especialista entra em contato para dar continuidade.
           </p>
         </div>
+      </section>
 
-        <SimulatorForm />
-      </div>
+      <section className="py-12">
+        <div className="container mx-auto px-4 lg:px-8">
+          <SimulatorForm />
+        </div>
+      </section>
     </div>
   )
 }

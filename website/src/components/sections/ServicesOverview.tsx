@@ -1,71 +1,69 @@
+'use client'
+
 import Link from 'next/link'
 import { Building2, CreditCard, FileCheck, ArrowRight } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
 
 const services = [
   {
     icon: CreditCard,
     title: 'Correspondente Bancário',
-    description:
-      'Intermediamos seu crédito imobiliário junto aos principais bancos do Brasil — Caixa, Bradesco, Itaú, Santander e outros — garantindo as melhores condições e taxas.',
+    description: 'Intermediamos seu crédito junto a Caixa, Bradesco, Itaú, Santander e demais bancos — comparando taxas para você ter a melhor condição.',
     href: '/servicos#correspondente',
-    color: 'text-green-600',
-    bg: 'bg-green-50',
   },
   {
     icon: FileCheck,
     title: 'Despachante Imobiliário',
-    description:
-      'Cuidamos de toda a documentação, análise jurídica, registros em cartório e burocracia para que você não precise perder tempo e energia com papelada.',
+    description: 'Cuidamos de toda a documentação, análise jurídica, registros em cartório e tramitações para que você não precise se preocupar com burocracia.',
     href: '/servicos#despachante',
-    color: 'text-blue-600',
-    bg: 'bg-blue-50',
   },
   {
     icon: Building2,
     title: 'Assessoria Imobiliária',
-    description:
-      'Apoio completo na busca, negociação e fechamento do seu imóvel. Orientamos sobre MCMV, FGTS, SBPE e qual o melhor caminho para o seu perfil.',
+    description: 'Apoio completo na jornada de compra: orientação sobre MCMV, FGTS, SBPE e acompanhamento do início ao registro do imóvel.',
     href: '/servicos#assessoria',
-    color: 'text-violet-600',
-    bg: 'bg-violet-50',
   },
 ]
 
 export default function ServicesOverview() {
   return (
-    <section className="py-20 bg-white">
+    <section className="py-24" style={{ background: '#F7F4EF' }}>
       <div className="container mx-auto px-4 lg:px-8">
-        <div className="text-center mb-14">
-          <p className="text-green-600 font-semibold text-sm tracking-wide uppercase mb-2">O que fazemos</p>
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+
+        {/* Header */}
+        <div className="text-center mb-16">
+          <p className="text-xs font-semibold tracking-widest mb-3" style={{ color: '#B39533' }}>O QUE FAZEMOS</p>
+          <h2 className="text-3xl lg:text-4xl font-light mb-4" style={{ color: '#1A1612', fontFamily: 'Georgia, serif' }}>
             Soluções completas para seu financiamento
           </h2>
-          <p className="text-gray-500 max-w-xl mx-auto">
-            Da simulação ao registro, cuidamos de cada etapa para que você conquiste
-            seu imóvel com segurança, agilidade e tranquilidade.
-          </p>
+          <div className="flex items-center justify-center gap-3">
+            <div className="h-px w-12" style={{ background: '#B39533' }} />
+            <p className="text-sm" style={{ color: '#7A7068' }}>Da simulação ao registro, cuidamos de cada etapa</p>
+            <div className="h-px w-12" style={{ background: '#B39533' }} />
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {services.map((service) => {
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {services.map((service, i) => {
             const Icon = service.icon
             return (
-              <Card key={service.title} className="group border border-gray-100 hover:border-green-200 hover:shadow-lg transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className={`inline-flex p-3 rounded-xl ${service.bg} mb-4`}>
-                    <Icon className={`h-6 w-6 ${service.color}`} />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{service.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed mb-4">{service.description}</p>
-                  <Link
-                    href={service.href}
-                    className="inline-flex items-center gap-1 text-sm font-medium text-green-600 hover:text-green-700 group-hover:gap-2 transition-all"
-                  >
-                    Saiba mais <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </CardContent>
-              </Card>
+              <div key={service.title}
+                className="group p-8 bg-white transition-shadow duration-300 hover:shadow-lg"
+                style={{ borderBottom: '3px solid transparent', borderImage: 'none', outline: '1px solid #E8E3DC' }}
+                onMouseEnter={e => (e.currentTarget.style.borderBottomColor = '#B39533')}
+                onMouseLeave={e => (e.currentTarget.style.borderBottomColor = 'transparent')}
+              >
+                <div className="mb-6 inline-flex items-center justify-center w-12 h-12 rounded-full"
+                  style={{ background: 'rgba(179,149,51,0.1)' }}>
+                  <Icon className="h-5 w-5" style={{ color: '#B39533' }} />
+                </div>
+                <h3 className="text-lg font-light mb-3" style={{ color: '#1A1612', fontFamily: 'Georgia, serif' }}>{service.title}</h3>
+                <p className="text-sm leading-relaxed mb-6" style={{ color: '#7A7068' }}>{service.description}</p>
+                <Link href={service.href}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase transition-colors"
+                  style={{ color: '#B39533' }}>
+                  Saiba mais <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
             )
           })}
         </div>

@@ -79,12 +79,13 @@ const seedPosts: BlogPost[] = [
 
 export default function BlogPage() {
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <section className="bg-gray-900 text-white py-20">
+    <div style={{ background: '#F7F4EF', minHeight: '100vh' }}>
+      <section className="py-20 relative" style={{ background: '#0D0B09' }}>
+        <div className="h-px absolute top-0 left-0 right-0" style={{ background: 'linear-gradient(90deg, transparent, #B39533, transparent)' }} />
         <div className="container mx-auto px-4 lg:px-8 text-center">
-          <p className="text-green-400 font-semibold text-sm tracking-wide uppercase mb-2">Conteúdo gratuito</p>
-          <h1 className="text-4xl lg:text-5xl font-bold mb-4">Blog</h1>
-          <p className="text-gray-400 max-w-xl mx-auto">
+          <p className="text-xs font-semibold tracking-widest mb-3" style={{ color: '#B39533' }}>CONTEÚDO GRATUITO</p>
+          <h1 className="text-4xl lg:text-5xl font-light mb-4" style={{ color: '#FFFFFF', fontFamily: 'Georgia, serif' }}>Blog</h1>
+          <p className="text-sm max-w-xl mx-auto" style={{ color: '#7A7068' }}>
             Dicas, orientações e notícias do mercado imobiliário para você tomar as melhores decisões.
           </p>
         </div>

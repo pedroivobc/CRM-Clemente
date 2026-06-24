@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -61,11 +61,11 @@ export default function ContactForm() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="p-4 rounded-full bg-green-100 mb-4">
-          <CheckCircle2 className="h-10 w-10 text-green-600" />
+        <div className="p-4 rounded-full mb-4" style={{ background: 'rgba(179,149,51,0.12)' }}>
+          <CheckCircle2 className="h-10 w-10" style={{ color: '#B39533' }} />
         </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Mensagem enviada!</h3>
-        <p className="text-gray-500 max-w-sm">
+        <h3 className="text-xl font-semibold mb-2" style={{ color: '#1A1612', fontFamily: 'Georgia, serif' }}>Mensagem enviada!</h3>
+        <p className="text-sm max-w-sm" style={{ color: '#7A7068' }}>
           Recebemos seu contato e nossa equipe retornará em breve. Obrigado!
         </p>
         <Button variant="outline" className="mt-6" onClick={() => setSuccess(false)}>
@@ -129,7 +129,8 @@ export default function ContactForm() {
         </div>
       )}
 
-      <Button type="submit" disabled={loading} size="lg" className="w-full bg-green-600 hover:bg-green-700 text-white">
+      <Button type="submit" disabled={loading} size="lg" className="w-full text-white font-semibold"
+        style={{ background: '#B39533', borderColor: '#B39533' } as React.CSSProperties}>
         {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</> : 'Enviar mensagem'}
       </Button>
     </form>
