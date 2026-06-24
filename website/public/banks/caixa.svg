@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 80" fill="none">
+  <!-- C -->
+  <text x="0" y="62" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#1565C0">C</text>
+  <!-- A -->
+  <text x="52" y="62" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#1565C0">A</text>
+  <!-- I -->
+  <text x="104" y="62" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#1565C0">I</text>
+  <!-- X with orange slash -->
+  <text x="122" y="62" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#1565C0">X</text>
+  <!-- Orange diagonal slash across X -->
+  <polygon points="138,8 158,8 176,68 156,68" fill="#F5A623"/>
+  <!-- A -->
+  <text x="174" y="62" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="72" fill="#1565C0">A</text>
+</svg>

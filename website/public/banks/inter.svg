@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80">
+  <!-- Orange dot above i -->
+  <circle cx="18" cy="10" r="9" fill="#FF6B00"/>
+  <!-- inter text -->
+  <text x="8" y="68" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="68" fill="#FF6B00">inter</text>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80">
+  <!-- Flame/torch icon -->
+  <g transform="translate(0, 4)">
+    <!-- Oval base -->
+    <ellipse cx="28" cy="56" rx="22" ry="14" fill="#EC0000"/>
+    <!-- Flame shape -->
+    <path d="M18 48 Q10 28 22 14 Q18 24 28 22 Q22 10 32 2 Q36 14 28 22 Q38 20 34 34 Q42 24 38 48 Z" fill="#EC0000"/>
+  </g>
+  <!-- Santander text -->
+  <text x="62" y="62" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="42" fill="#EC0000">Santander</text>
+</svg>

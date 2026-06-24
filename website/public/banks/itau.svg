@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Rounded orange square background -->
+  <rect x="4" y="4" width="112" height="112" rx="26" ry="26" fill="#FF5A00"/>
+  <!-- itaú text -->
+  <text x="60" y="76" font-family="Arial, sans-serif" font-weight="700" font-size="32" fill="white" text-anchor="middle">itaú</text>
+</svg>
