@@ -25,3 +25,6 @@ __pycache__/
 # Runtime
 *.log
 storage-dev/
+
+# Build artifacts
+*.tsbuildinfo

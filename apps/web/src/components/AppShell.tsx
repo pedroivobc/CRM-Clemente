@@ -1,0 +1,192 @@
+import {
+  Building2,
+  ChevronDown,
+  FileSignature,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Settings,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
+import * as React from "react";
+import { NavLink, useLocation } from "react-router-dom";
+
+import { useAuth } from "@/auth/AuthProvider";
+import { Button } from "@/components/ui";
+import { cn } from "@/lib/utils";
+
+type NavItem = {
+  to: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  permission?: [string, string];
+  module?: string;
+};
+
+type NavGroup = { label: string; items: NavItem[] };
+
+const GROUPS: NavGroup[] = [
+  {
+    label: "Operação",
+    items: [
+      { to: "/", label: "Painel", icon: LayoutDashboard },
+      { to: "/clientes", label: "Clientes", icon: Users, permission: ["clientes", "view"] },
+      { to: "/imoveis", label: "Imóveis", icon: Building2, permission: ["imoveis", "view"] },
+    ],
+  },
+  {
+    label: "Módulos",
+    items: [
+      {
+        to: "/vendas",
+        label: "Vendas",
+        icon: FileSignature,
+        module: "module_sales",
+      },
+    ],
+  },
+  {
+    label: "Gestão",
+    items: [
+      { to: "/financeiro", label: "Financeiro", icon: Wallet, permission: ["financeiro", "view"] },
+      {
+        to: "/configuracoes",
+        label: "Configurações",
+        icon: Settings,
+        permission: ["configuracoes", "view"],
+      },
+    ],
+  },
+];
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  const { me, tenant, signOut, can, hasModule } = useAuth();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const location = useLocation();
+
+  React.useEffect(() => setMobileOpen(false), [location.pathname]);
+
+  const groups = GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) =>
+        (!item.permission || can(item.permission[0], item.permission[1])) &&
+        (!item.module || hasModule(item.module)),
+    ),
+  })).filter((group) => group.items.length > 0);
+
+  const displayName = tenant?.branding.display_name ?? me?.tenant_name ?? "Imobiliária";
+
+  return (
+    <div className="min-h-dvh lg:grid lg:grid-cols-[236px_1fr]">
+      {/* Rail lateral */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-[236px] flex-col border-r border-line bg-surface transition-transform lg:static lg:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex h-14 items-center gap-2.5 border-b border-line px-4">
+          <span
+            className="grid size-7 shrink-0 place-items-center rounded font-display text-[13px] font-bold"
+            style={{ background: "var(--brand-primary)", color: "var(--brand-contrast)" }}
+            aria-hidden
+          >
+            {displayName.slice(0, 1).toUpperCase()}
+          </span>
+          <span className="truncate font-display text-[14px] font-semibold text-ink">
+            {displayName}
+          </span>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {groups.map((group) => (
+            <div key={group.label} className="mb-5">
+              <p className="mb-1.5 px-2 font-mono text-[10px] tracking-widest text-muted uppercase">
+                {group.label}
+              </p>
+              <ul className="space-y-0.5">
+                {group.items.map(({ to, label, icon: Icon }) => (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      end={to === "/"}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13.5px] transition-colors",
+                          isActive
+                            ? "bg-[color-mix(in_srgb,var(--brand-primary)_10%,white)] font-medium text-[var(--brand-primary)]"
+                            : "text-ink-soft hover:bg-sunken hover:text-ink",
+                        )
+                      }
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      {label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+
+        <div className="border-t border-line p-3">
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-sunken">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-sunken font-mono text-[11px] font-medium text-ink-soft">
+                {initials(me?.full_name)}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium text-ink">
+                  {me?.full_name}
+                </span>
+                <span className="block truncate text-[11px] text-muted">
+                  {me?.roles.join(" · ") || "Sem papel"}
+                </span>
+              </span>
+              <ChevronDown className="size-3.5 shrink-0 text-muted transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="mt-1 px-2 pb-1">
+              <p className="truncate py-1 text-[11px] text-muted">{me?.email}</p>
+              <Button variant="ghost" size="sm" className="w-full justify-start" onClick={signOut}>
+                <LogOut />
+                Sair
+              </Button>
+            </div>
+          </details>
+        </div>
+      </aside>
+
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Fechar menu"
+          className="fixed inset-0 z-30 bg-ink/30 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      ) : null}
+
+      <div className="flex min-w-0 flex-col">
+        <header className="flex h-14 items-center gap-3 border-b border-line bg-surface px-4 lg:hidden">
+          <Button variant="ghost" size="icon" onClick={() => setMobileOpen((v) => !v)}>
+            {mobileOpen ? <X /> : <Menu />}
+            <span className="sr-only">Menu</span>
+          </Button>
+          <span className="font-display text-[14px] font-semibold">{displayName}</span>
+        </header>
+
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function initials(name: string | undefined): string {
+  if (!name) return "—";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts.at(-1)?.[0] ?? "") : "")).toUpperCase();
+}
