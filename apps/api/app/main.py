@@ -1,0 +1,65 @@
+"""Aplicação FastAPI — Sistema de Gestão Imobiliária."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.core.config import get_settings
+from app.core.db import dispose_engine
+from app.modules import clients, dashboard, finance, properties, sales, session, tenants, users
+from app.workers.queue import close_pool
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+    await close_pool()
+    await dispose_engine()
+
+
+settings = get_settings()
+
+app = FastAPI(
+    title="Sistema de Gestão Imobiliária",
+    description="API multi-tenant para imobiliárias — módulos de Locação e Vendas.",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+)
+
+# Em produção o acesso é por subdomínio do tenant, servido pela mesma origem
+# (Caddy). A liberação ampla vale apenas para o Vite em desenvolvimento.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=(
+        r"https://([a-z0-9-]+\.)?" + settings.base_domain.replace(".", r"\.")
+        if settings.is_production
+        else r"https?://.*"
+    ),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.get("/api/health", tags=["infra"])
+async def health() -> dict:
+    return {"status": "ok", "env": settings.app_env}
+
+
+for module in (session, dashboard, tenants, users, clients, properties, finance, sales):
+    app.include_router(module.router, prefix="/api/v1")
