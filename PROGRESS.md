@@ -1,114 +1,100 @@
 # PROGRESS
 
-## Fase 2 — Locação core (2026-07-24) ✅
+## Módulo de Vendas (2026-07-25) ✅
 
-CRM de locação, contratos com assinatura eletrônica e o motor de cobrança com
-split — o coração do módulo.
+O módulo de Vendas deixa de ser casca e passa a ser **autônomo**: operação,
+indicadores e financeiro próprios. Uma imobiliária que contrate apenas vendas
+tem o produto completo, sem depender de nada da locação — e vice-versa.
 
 ### Entregue
 
-**Banco (`supabase/migrations/0007_rentals.sql`)**
-- Funil próprio: `pipelines`, `pipeline_stages` (com SLA por etapa),
-  `leads`, `lead_stage_history`, `visits`, `loss_reasons`, `credit_analyses`.
-- Contratos: `contracts` (taxa de administração por contrato, índice de
-  reajuste, multa, juros, garantia), `contract_parties`, `contract_templates`,
-  `contract_adjustments`, `signature_requests`.
-- Cobrança: `charges`, `charge_items`, `charge_splits`, `payments`.
-- Repasse: `payouts`, `payout_items`.
-- `price_indexes` (IGP-M/IPCA, global) e `webhook_events` (idempotência).
-- Funil, motivos de perda e template de contrato semeados no provisionamento
-  de todo tenant com locação.
+**Banco (`supabase/migrations/0008_sales.sql`)**
+- Funil próprio: `pipelines`, `pipeline_stages`, `leads`, `lead_stage_history`,
+  `visits`, `loss_reasons` — separados dos de locação.
+- `proposals` com contraproposta encadeada (`parent_id` + `round`), preço
+  pedido × oferta, sinal e forma de pagamento.
+- `deals` com valor da venda, forma de pagamento, escritura e entrega de
+  chaves; `commissions` com o rateio; `commission_rules` com a regra do tenant.
+- Provisionamento condicional: o tenant recebe o funil de vendas apenas se o
+  plano incluir o módulo.
 
-**Motor financeiro (`app/domain/`)** — funções puras, sem banco nem rede
-- `billing.py`: composição da cobrança, multa e juros por atraso, desconto por
-  pontualidade, split e extrato de repasse.
-- `adjustment.py`: índice acumulado composto, reajuste anual, aniversário do
-  contrato e marcos de alerta de vigência (90/60/30 dias).
+**Motor de vendas (`app/domain/sales.py`)** — funções puras
+- Comissão sobre o valor da venda com rateio entre imobiliária, corretor
+  captador e corretor vendedor, fechando no centavo.
+- Cota de corretor sem dono volta para a imobiliária em vez de ficar órfã.
+- Avaliação da proposta contra o preço pedido, inclusive ágio (oferta acima
+  do pedido aparece como diferença negativa, não zero).
+- Conversão do funil e indicadores do período (VGV, ticket médio, ciclo).
 
-**API** — 31 rotas novas (67 no total)
-- `rentals`: quadro do funil com tempo por etapa e SLA, movimentação entre
-  etapas com histórico, perda com motivo, distribuição de leads por
-  round-robin, análise cadastral com renda mínima configurável.
-- `contracts`: criação com partes, texto gerado do template, envio para
-  assinatura, ativação, encerramento, prévia e aplicação do reajuste,
-  alertas de vigência e de reajuste devido.
-- `billing`: geração mensal idempotente, boleto e Pix, segunda via, baixa
-  manual, cancelamento, repasses e lançamento de descontos de manutenção.
-- `webhooks`: pagamento e assinatura, fora de `/api/v1`, com verificação de
-  assinatura e idempotência por evento.
+**API** — 16 rotas novas (83 no total)
+- Funil, propostas (criar, contrapor, aceitar, recusar), negócios (fechar,
+  concluir, cancelar), pagamento de comissão e regra de rateio.
+- `/sales/dashboard`: VGV, ticket médio, comissão gerada, ciclo médio, valor
+  em negociação, conversão do funil e ranking de corretores.
+- `/rentals/dashboard`: carteira administrada, receita recorrente prevista,
+  inadimplência, repasses do mês, vigências a vencer e reajustes devidos.
 
 **Frontend**
-- Funil kanban com arrastar-e-soltar entre etapas, marcação de SLA estourado,
-  corretor responsável e registro de perda com motivo.
-- Contratos: lista com situação, alerta de vigências a vencer, ficha com
-  valores, partes, condições, texto gerado e reajuste com prévia do índice.
-- Cobranças: competência do mês, indicadores (em aberto, recebido, taxa de
-  administração), tabela com split por linha, segunda via com cópia da linha
-  digitável e do Pix, baixa manual avisando quando haverá multa, e o extrato
-  de repasse por proprietário com lançamento de desconto.
+- Funil de vendas em kanban, propostas com contraproposta e decisão, negócios
+  com o rateio da comissão expansível e pagamento por corretor.
+- Painel inicial montado conforme o plano: com um módulo só, abre direto nele;
+  com os dois, abas separam Carteira, Locação e Vendas.
 
-### Regras do dinheiro (cobertas por teste)
-- A taxa de administração incide **sobre o aluguel**, nunca sobre condomínio
-  e IPTU — esses são repasse integral ao proprietário.
-- Multa percentual única + juros diários proporcionais ao atraso; pagamento em
-  dia ou adiantado não gera encargo.
-- Desconto por pontualidade só vale até o vencimento.
-- Rateio entre coproprietários fecha no centavo: a última cota absorve a sobra.
-- Repasse pode ficar negativo (reparo maior que o aluguel) e o extrato mostra
-  o saldo devedor em vez de zerar em silêncio.
-- Reajuste usa o índice **acumulado** de doze meses, composto
-  multiplicativamente; deflação é aplicada como vem.
+### Autonomia entre módulos (coberta por teste)
+- Funis, etapas e motivos de perda são independentes: "Negociação" só existe
+  em vendas, "Análise cadastral" só em locação.
+- Um lead de venda não aparece no funil de locação.
+- Plano `locacao` recebe 403 em toda rota de vendas e não tem sequer o funil
+  de vendas criado no banco; plano `venda` não recebe o funil de locação.
+- Os painéis não emprestam número um do outro: o de vendas não conhece
+  contratos, o de locação não conhece VGV.
+- Ponto de encontro deliberado: os dois alimentam o **mesmo financeiro
+  central**, cada um pela sua conta — taxa de administração na conta 1.01
+  (centro de custo Locação) e comissão de venda na 1.02 (centro Vendas).
 
 ### Verificação
-- 137 testes passando: 35 do motor financeiro, 12 dos webhooks, 27 do fluxo de
-  locação ponta a ponta, além dos 63 da Fase 1. `ruff` limpo, build do
-  frontend OK, telas conferidas por captura.
-
-### Decisões e descobertas
-- **Webhook chega sem tenant.** É ele que precisa descobrir a que imobiliária
-  a cobrança pertence, então a resolução usa funções `SECURITY DEFINER` que
-  devolvem só o vínculo (id + tenant), nunca dado de negócio — mesmo padrão da
-  resolução de usuário.
-- **Idempotência antes do processamento.** O evento é gravado com
-  `(provider, event_id)` único antes de qualquer efeito; reentrega responde
-  200 e não credita de novo.
-- **Baixa manual usa as mesmas regras do fluxo automático**, para os dois
-  caminhos darem o mesmo número.
-- **Falha no gateway não perde a cobrança**: ela fica registrada localmente e
-  pode ser reemitida.
-- O seletor de competência virou dois selects: o `input type="month"` é
-  rotulado pelo idioma do navegador, e a interface é toda em português.
+- 182 testes passando: 19 do motor de comissões, 26 do fluxo de vendas e da
+  autonomia, 35 do motor de locação, 12 dos webhooks, mais os da fundação.
+- `ruff` limpo, build do frontend OK, telas conferidas por captura nos três
+  planos (só vendas, só locação, completo).
 
 ### Pendências
-- Credenciais sandbox (Asaas, ClickSign) para trocar os mocks pelas
-  integrações reais — tudo já roda contra as interfaces definidas.
-- Série do IGP-M/IPCA: a tabela existe e o cálculo está pronto, falta o job
-  que importa os índices do Banco Central.
-- Recibo de quitação em PDF e notificação por WhatsApp no pagamento
-  confirmado (dependem da Fase 3 e da Fase 5).
+- Credenciais de sandbox seguem ausentes por opção do cliente; todos os
+  provedores rodam em mock (Asaas, ClickSign, Focus NFe, Evolution).
+- Vendas: contrato de compra e venda com assinatura eletrônica e o
+  acompanhamento de financiamento junto ao banco ainda não existem.
+- Locação: NFS-e sobre a taxa, extrato de repasse em PDF e informe de
+  rendimentos (Fase 3).
+
+---
+
+## Fase 2 — Locação core (2026-07-24) ✅
+
+CRM de locação, contratos com assinatura e o motor de cobrança com split.
+
+**Entregue:** schema `rentals` com RLS; motor financeiro em funções puras
+(taxa sobre o aluguel e não sobre encargos, multa e juros por atraso, desconto
+por pontualidade, rateio entre coproprietários, extrato de repasse com
+abatimento de manutenção, reajuste pelo índice acumulado); funil com SLA e
+round-robin; contratos com template, assinatura, ativação e reajuste;
+cobranças com geração mensal idempotente, boleto e Pix, segunda via e baixa
+manual; webhooks de pagamento e assinatura com idempotência.
+
+**Descobertas:** o webhook chega sem contexto de tenant e o RLS bloqueava a
+busca — resolvido com funções `SECURITY DEFINER` que devolvem só o vínculo; o
+`input type="month"` é rotulado pelo idioma do navegador, então a competência
+virou selects próprios.
 
 ---
 
 ## Fase 1 — Fundação (2026-07-24) ✅
 
-Multi-tenant, autenticação, RBAC, white label, cadastro de clientes e imóveis
-(com marca d'água) e financeiro central básico.
-
-**Entregue:** migrations `core`/`crm`/`properties`/`finance` + casca de
-`sales` com RLS; API FastAPI com tenancy por subdomínio, JWT do Supabase,
-RBAC granular e auditoria; worker arq com marca d'água (Pillow); providers
-abstratos com mock; frontend React com white label em runtime, painel,
-clientes, imóveis, financeiro e configurações; infra Docker Compose, Caddy e
-CI com Postgres de serviço.
+Multi-tenant, autenticação, RBAC, white label, clientes e imóveis (com marca
+d'água) e financeiro central básico.
 
 **Decisões:** testes rodam com papel comum de banco (superusuário ignora RLS
 silenciosamente); dados só pela API, RLS como segunda defesa; identificadores
 e dinheiro em monoespaçada com etiqueta de código.
-
-**Correções encontradas na verificação:** busca por termo sem dígitos casava
-com todo cliente com CPF preenchido; `str.format` colidia com o literal
-`'{}'` do SQL; situação do imóvel comunicada só por cor; cores de "Reservado"
-e "Em manutenção" indistinguíveis.
 
 ---
 
@@ -119,8 +105,12 @@ aprovados pelo cliente.
 
 ---
 
-## Próximo: Fase 3 — Financeiro avançado
+## Próximos passos possíveis
 
-NFS-e automatizada sobre a taxa de administração com painel de conciliação,
-fechamento e pagamento dos repasses com extrato em PDF, e relatórios do
-proprietário (incluindo informe de rendimentos).
+1. **Fase 3 — Financeiro avançado:** NFS-e sobre a taxa de administração com
+   painel de conciliação, fechamento e pagamento dos repasses com extrato em
+   PDF, informe anual de rendimentos.
+2. **Vendas — contrato e financiamento:** contrato de compra e venda com
+   assinatura eletrônica, acompanhamento do processo junto ao banco.
+3. **Fase 4 — Operação:** chaves, vistorias com laudo em PDF e chamados de
+   manutenção com prestadores.

@@ -15,7 +15,9 @@ import { Imoveis } from "@/pages/Imoveis";
 import { ImovelDetalhe } from "@/pages/ImovelDetalhe";
 import { Financeiro } from "@/pages/Financeiro";
 import { Funil } from "@/pages/Funil";
-import { Vendas } from "@/pages/Vendas";
+import { Negocios } from "@/pages/vendas/Negocios";
+import { FunilVendas } from "@/pages/vendas/FunilVendas";
+import { Propostas } from "@/pages/vendas/Propostas";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,7 +88,19 @@ function Gate() {
           path="/cobrancas"
           element={<ModuleRoute module="module_rentals" element={<Cobrancas />} />}
         />
-        <Route path="/vendas" element={<ModuleRoute module="module_sales" element={<Vendas />} />} />
+        <Route
+          path="/vendas/funil"
+          element={<ModuleRoute module="module_sales" element={<FunilVendas />} />}
+        />
+        <Route
+          path="/vendas/propostas"
+          element={<ModuleRoute module="module_sales" element={<Propostas />} />}
+        />
+        <Route
+          path="/vendas/negocios"
+          element={<ModuleRoute module="module_sales" element={<Negocios />} />}
+        />
+        <Route path="/vendas" element={<Navigate to="/vendas/funil" replace />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

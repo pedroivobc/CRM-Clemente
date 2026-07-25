@@ -398,3 +398,151 @@ export type AdjustmentPreview = {
   new_rent: string;
   difference: string;
 };
+
+/* ── Vendas ───────────────────────────────────────────────────────────── */
+
+export type FinancingType =
+  | "a_vista"
+  | "financiamento"
+  | "fgts"
+  | "consorcio"
+  | "permuta"
+  | "misto";
+
+export type SalesLead = {
+  id: string;
+  stage_id: string;
+  stage_name: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  source: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  property_id: string | null;
+  property_code: string | null;
+  budget_min: string | null;
+  budget_max: string | null;
+  financing_type: FinancingType | null;
+  assigned_to: string | null;
+  assigned_name: string | null;
+  status: "aberto" | "ganho" | "perdido";
+  loss_reason: string | null;
+  notes: string | null;
+  stage_since: string;
+  hours_in_stage: number;
+  sla_hours: number | null;
+  sla_breached: boolean;
+  created_at: string;
+};
+
+export type SalesBoard = { pipeline_id: string; stages: Stage[]; leads: SalesLead[] };
+
+export type Proposal = {
+  id: string;
+  code: string;
+  lead_id: string | null;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  buyer_id: string | null;
+  buyer_name: string | null;
+  broker_id: string | null;
+  broker_name: string | null;
+  asking_price: string;
+  offer_amount: string;
+  discount_amount: string;
+  discount_pct: string;
+  down_payment: string | null;
+  financing_type: FinancingType | null;
+  financing_bank: string | null;
+  conditions: string | null;
+  valid_until: string | null;
+  status: "aberta" | "contraproposta" | "aceita" | "recusada" | "expirada" | "cancelada";
+  round: number;
+  parent_id: string | null;
+  decision_notes: string | null;
+  created_at: string;
+};
+
+export type Commission = {
+  beneficiary: "agency" | "lister" | "seller_broker" | "partner";
+  user_id: string | null;
+  user_name: string | null;
+  share_pct: string;
+  amount: string;
+  status: "pendente" | "pago" | "cancelado";
+};
+
+export type Deal = {
+  id: string;
+  code: string;
+  proposal_id: string | null;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  buyer_id: string | null;
+  buyer_name: string | null;
+  seller_id: string | null;
+  seller_name: string | null;
+  sale_amount: string;
+  down_payment: string | null;
+  financing_type: FinancingType | null;
+  financing_bank: string | null;
+  commission_pct: string;
+  commission_total: string;
+  closed_at: string;
+  deed_date: string | null;
+  keys_handed_at: string | null;
+  status: "em_andamento" | "concluido" | "cancelado";
+  notes: string | null;
+  commissions: Commission[];
+  created_at: string;
+};
+
+export type FunnelStage = {
+  key: string;
+  name: string;
+  count: number;
+  conversion_pct: string;
+};
+
+export type SalesDashboard = {
+  periodo_meses: number;
+  vgv: string;
+  vendas: number;
+  ticket_medio: string;
+  comissao_gerada: string;
+  ciclo_medio_dias: number | null;
+  valor_em_negociacao: string;
+  comissoes: { a_pagar: string; pagas: string };
+  funil: FunnelStage[];
+  ranking_corretores: { corretor: string; vendas: number; comissao: string }[];
+};
+
+export type RentalsDashboard = {
+  carteira: {
+    contratos_ativos: number;
+    em_assinatura: number;
+    aluguel_administrado: string;
+    taxa_mensal_prevista: string;
+    vigencias_a_vencer: number;
+  };
+  cobrancas: {
+    vencidas: number;
+    valor_vencido: string;
+    recebido_mes: string;
+    cobrado_mes: string;
+    inadimplencia_pct: string;
+  };
+  repasses: { a_repassar: string; proprietarios: number };
+  reajustes_devidos: number;
+  funil: FunnelStage[];
+};
+
+export type CommissionRule = {
+  default_pct: string;
+  agency_share_pct: string;
+  lister_share_pct: string;
+  seller_share_pct: string;
+};

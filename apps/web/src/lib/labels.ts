@@ -70,3 +70,51 @@ export const AUDIT_ENTITIES: Record<string, string> = {
   receivable: "conta a receber",
   tenant_branding: "identidade visual",
 };
+
+/* ── Vendas ───────────────────────────────────────────────────────────── */
+
+export const FINANCING_TYPES: Record<string, string> = {
+  a_vista: "À vista",
+  financiamento: "Financiamento",
+  fgts: "FGTS",
+  consorcio: "Consórcio",
+  permuta: "Permuta",
+  misto: "Misto",
+};
+
+export const SALES_SOURCES: Record<string, string> = {
+  portal: "Portal de imóveis",
+  site: "Site da imobiliária",
+  indicacao: "Indicação",
+  balcao: "Balcão",
+  placa: "Placa no imóvel",
+  whatsapp: "WhatsApp",
+};
+
+export const PROPOSAL_STATUS: Record<
+  string,
+  { label: string; tone: "neutral" | "positive" | "caution" | "critical" | "brand" }
+> = {
+  aberta: { label: "Aberta", tone: "brand" },
+  contraproposta: { label: "Contraproposta", tone: "caution" },
+  aceita: { label: "Aceita", tone: "positive" },
+  recusada: { label: "Recusada", tone: "critical" },
+  expirada: { label: "Expirada", tone: "neutral" },
+  cancelada: { label: "Cancelada", tone: "neutral" },
+};
+
+export const DEAL_STATUS: Record<
+  string,
+  { label: string; tone: "neutral" | "positive" | "caution" | "critical" }
+> = {
+  em_andamento: { label: "Em andamento", tone: "caution" },
+  concluido: { label: "Concluído", tone: "positive" },
+  cancelado: { label: "Cancelado", tone: "critical" },
+};
+
+export const COMMISSION_BENEFICIARIES: Record<string, string> = {
+  agency: "Imobiliária",
+  lister: "Corretor captador",
+  seller_broker: "Corretor vendedor",
+  partner: "Parceiro",
+};

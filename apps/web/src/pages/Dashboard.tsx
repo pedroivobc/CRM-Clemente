@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, FileWarning } from "lucide-react";
+import * as React from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthProvider";
@@ -7,21 +8,34 @@ import { Badge, Card, CardHeader, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money, relativeDays } from "@/lib/format";
 import { PROPERTY_STATUS } from "@/lib/labels";
+import { PainelLocacao } from "@/pages/locacao/PainelLocacao";
+import { PainelVendas } from "@/pages/vendas/PainelVendas";
 import type { Dashboard as DashboardData, ExpiringDocument } from "@/lib/types";
 
+type Tab = "carteira" | "locacao" | "vendas";
+
+/**
+ * Painel inicial montado conforme o plano contratado.
+ *
+ * Cada módulo tem indicadores próprios e não empresta número do outro: quem
+ * contrata só locação nunca vê VGV, e quem contrata só vendas nunca vê
+ * inadimplência de aluguel. Com os dois módulos, as abas separam as leituras.
+ */
 export function Dashboard() {
-  const { me, can } = useAuth();
+  const { me, can, hasModule } = useAuth();
+  const hasRentals = hasModule("module_rentals");
+  const hasSales = hasModule("module_sales");
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: () => api.get<DashboardData>("/dashboard"),
-  });
+  const tabs: { value: Tab; label: string }[] = [
+    { value: "carteira", label: "Carteira" },
+    ...(hasRentals ? ([{ value: "locacao", label: "Locação" }] as const) : []),
+    ...(hasSales ? ([{ value: "vendas", label: "Vendas" }] as const) : []),
+  ];
 
-  const { data: expiring } = useQuery({
-    queryKey: ["documents", "expiring"],
-    queryFn: () => api.get<ExpiringDocument[]>("/clients/documents/expiring?days=30"),
-    enabled: can("clientes", "view"),
-  });
+  // Abre no módulo do plano quando há só um; com os dois, começa na carteira.
+  const [tab, setTab] = React.useState<Tab>(
+    hasRentals && !hasSales ? "locacao" : !hasRentals && hasSales ? "vendas" : "carteira",
+  );
 
   const firstName = me?.full_name.split(" ")[0] ?? "";
 
@@ -33,32 +47,74 @@ export function Dashboard() {
           Bom trabalho, {firstName}.
         </h1>
         <p className="mt-1 text-[13px] text-muted">
-          Situação da carteira e o que precisa de atenção hoje.
+          Situação da operação e o que precisa de atenção hoje.
         </p>
       </header>
 
-      {isLoading || !data ? (
-        <Card className="grid h-40 place-items-center">
-          <Spinner />
-        </Card>
-      ) : (
-        <div className="space-y-5">
-          <PortfolioStrip data={data} />
-
-          <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
-            {can("financeiro", "view") ? <FinancePosition data={data} /> : null}
-            <PendingItems data={data} expiring={expiring ?? []} />
-          </div>
+      {tabs.length > 1 ? (
+        <div className="mb-5 flex gap-1 border-b border-line">
+          {tabs.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={
+                tab === value
+                  ? "-mb-px border-b-2 border-[var(--brand-primary)] px-3 py-2 text-[13.5px] font-medium text-[var(--brand-primary)]"
+                  : "-mb-px border-b-2 border-transparent px-3 py-2 text-[13.5px] text-muted hover:text-ink"
+              }
+            >
+              {label}
+            </button>
+          ))}
         </div>
-      )}
+      ) : null}
+
+      {tab === "carteira" ? <PainelCarteira canSeeFinance={can("financeiro", "view")} canSeeClients={can("clientes", "view")} /> : null}
+      {tab === "locacao" ? <PainelLocacao /> : null}
+      {tab === "vendas" ? <PainelVendas /> : null}
     </>
   );
 }
 
-/**
- * O hero do painel é a composição da carteira: para uma imobiliária, quantos
- * imóveis estão alugados, disponíveis ou em captação *é* o estado do negócio.
- */
+/** Bloco comum aos dois módulos: imóveis cadastrados, caixa e pendências. */
+function PainelCarteira({
+  canSeeFinance,
+  canSeeClients,
+}: {
+  canSeeFinance: boolean;
+  canSeeClients: boolean;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: () => api.get<DashboardData>("/dashboard"),
+  });
+
+  const { data: expiring } = useQuery({
+    queryKey: ["documents", "expiring"],
+    queryFn: () => api.get<ExpiringDocument[]>("/clients/documents/expiring?days=30"),
+    enabled: canSeeClients,
+  });
+
+  if (isLoading || !data) {
+    return (
+      <Card className="grid h-40 place-items-center">
+        <Spinner />
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <PortfolioStrip data={data} />
+      <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+        {canSeeFinance ? <FinancePosition data={data} /> : null}
+        <PendingItems expiring={expiring ?? []} />
+      </div>
+    </div>
+  );
+}
+
 function PortfolioStrip({ data }: { data: DashboardData }) {
   const segments = data.imoveis_por_status.filter((s) => s.total > 0);
   const total = segments.reduce((sum, s) => sum + s.total, 0);
@@ -149,7 +205,7 @@ function FinancePosition({ data }: { data: DashboardData }) {
     <Card>
       <CardHeader
         title="Posição financeira"
-        hint="Lançamentos em aberto"
+        hint="Lançamentos em aberto de todos os módulos"
         action={
           <Link
             to="/financeiro"
@@ -183,21 +239,13 @@ function FinancePosition({ data }: { data: DashboardData }) {
   );
 }
 
-function PendingItems({
-  data,
-  expiring,
-}: {
-  data: DashboardData;
-  expiring: ExpiringDocument[];
-}) {
-  const hasNothing = expiring.length === 0 && data.cadastros.documentos_a_vencer === 0;
-
+function PendingItems({ expiring }: { expiring: ExpiringDocument[] }) {
   return (
     <Card>
-      <CardHeader title="Precisa de atenção" hint="Próximos 30 dias" />
-      {hasNothing ? (
+      <CardHeader title="Documentos a vencer" hint="Próximos 30 dias" />
+      {expiring.length === 0 ? (
         <div className="px-5 py-8 text-center">
-          <p className="text-[13px] text-muted">Nada pendente. Carteira em dia.</p>
+          <p className="text-[13px] text-muted">Nenhum documento vencendo. Cadastro em dia.</p>
         </div>
       ) : (
         <ul className="divide-y divide-line-soft">

@@ -82,7 +82,7 @@ export function CodeTag({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-[3px] border px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-tight",
+        "inline-flex items-center rounded-[3px] border px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-tight whitespace-nowrap",
         tone === "brand"
           ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
           : "border-line bg-sunken text-ink-soft",
