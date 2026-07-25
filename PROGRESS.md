@@ -1,91 +1,126 @@
 # PROGRESS
 
+## Fase 2 — Locação core (2026-07-24) ✅
+
+CRM de locação, contratos com assinatura eletrônica e o motor de cobrança com
+split — o coração do módulo.
+
+### Entregue
+
+**Banco (`supabase/migrations/0007_rentals.sql`)**
+- Funil próprio: `pipelines`, `pipeline_stages` (com SLA por etapa),
+  `leads`, `lead_stage_history`, `visits`, `loss_reasons`, `credit_analyses`.
+- Contratos: `contracts` (taxa de administração por contrato, índice de
+  reajuste, multa, juros, garantia), `contract_parties`, `contract_templates`,
+  `contract_adjustments`, `signature_requests`.
+- Cobrança: `charges`, `charge_items`, `charge_splits`, `payments`.
+- Repasse: `payouts`, `payout_items`.
+- `price_indexes` (IGP-M/IPCA, global) e `webhook_events` (idempotência).
+- Funil, motivos de perda e template de contrato semeados no provisionamento
+  de todo tenant com locação.
+
+**Motor financeiro (`app/domain/`)** — funções puras, sem banco nem rede
+- `billing.py`: composição da cobrança, multa e juros por atraso, desconto por
+  pontualidade, split e extrato de repasse.
+- `adjustment.py`: índice acumulado composto, reajuste anual, aniversário do
+  contrato e marcos de alerta de vigência (90/60/30 dias).
+
+**API** — 31 rotas novas (67 no total)
+- `rentals`: quadro do funil com tempo por etapa e SLA, movimentação entre
+  etapas com histórico, perda com motivo, distribuição de leads por
+  round-robin, análise cadastral com renda mínima configurável.
+- `contracts`: criação com partes, texto gerado do template, envio para
+  assinatura, ativação, encerramento, prévia e aplicação do reajuste,
+  alertas de vigência e de reajuste devido.
+- `billing`: geração mensal idempotente, boleto e Pix, segunda via, baixa
+  manual, cancelamento, repasses e lançamento de descontos de manutenção.
+- `webhooks`: pagamento e assinatura, fora de `/api/v1`, com verificação de
+  assinatura e idempotência por evento.
+
+**Frontend**
+- Funil kanban com arrastar-e-soltar entre etapas, marcação de SLA estourado,
+  corretor responsável e registro de perda com motivo.
+- Contratos: lista com situação, alerta de vigências a vencer, ficha com
+  valores, partes, condições, texto gerado e reajuste com prévia do índice.
+- Cobranças: competência do mês, indicadores (em aberto, recebido, taxa de
+  administração), tabela com split por linha, segunda via com cópia da linha
+  digitável e do Pix, baixa manual avisando quando haverá multa, e o extrato
+  de repasse por proprietário com lançamento de desconto.
+
+### Regras do dinheiro (cobertas por teste)
+- A taxa de administração incide **sobre o aluguel**, nunca sobre condomínio
+  e IPTU — esses são repasse integral ao proprietário.
+- Multa percentual única + juros diários proporcionais ao atraso; pagamento em
+  dia ou adiantado não gera encargo.
+- Desconto por pontualidade só vale até o vencimento.
+- Rateio entre coproprietários fecha no centavo: a última cota absorve a sobra.
+- Repasse pode ficar negativo (reparo maior que o aluguel) e o extrato mostra
+  o saldo devedor em vez de zerar em silêncio.
+- Reajuste usa o índice **acumulado** de doze meses, composto
+  multiplicativamente; deflação é aplicada como vem.
+
+### Verificação
+- 137 testes passando: 35 do motor financeiro, 12 dos webhooks, 27 do fluxo de
+  locação ponta a ponta, além dos 63 da Fase 1. `ruff` limpo, build do
+  frontend OK, telas conferidas por captura.
+
+### Decisões e descobertas
+- **Webhook chega sem tenant.** É ele que precisa descobrir a que imobiliária
+  a cobrança pertence, então a resolução usa funções `SECURITY DEFINER` que
+  devolvem só o vínculo (id + tenant), nunca dado de negócio — mesmo padrão da
+  resolução de usuário.
+- **Idempotência antes do processamento.** O evento é gravado com
+  `(provider, event_id)` único antes de qualquer efeito; reentrega responde
+  200 e não credita de novo.
+- **Baixa manual usa as mesmas regras do fluxo automático**, para os dois
+  caminhos darem o mesmo número.
+- **Falha no gateway não perde a cobrança**: ela fica registrada localmente e
+  pode ser reemitida.
+- O seletor de competência virou dois selects: o `input type="month"` é
+  rotulado pelo idioma do navegador, e a interface é toda em português.
+
+### Pendências
+- Credenciais sandbox (Asaas, ClickSign) para trocar os mocks pelas
+  integrações reais — tudo já roda contra as interfaces definidas.
+- Série do IGP-M/IPCA: a tabela existe e o cálculo está pronto, falta o job
+  que importa os índices do Banco Central.
+- Recibo de quitação em PDF e notificação por WhatsApp no pagamento
+  confirmado (dependem da Fase 3 e da Fase 5).
+
+---
+
 ## Fase 1 — Fundação (2026-07-24) ✅
 
 Multi-tenant, autenticação, RBAC, white label, cadastro de clientes e imóveis
 (com marca d'água) e financeiro central básico.
 
-### Entregue
+**Entregue:** migrations `core`/`crm`/`properties`/`finance` + casca de
+`sales` com RLS; API FastAPI com tenancy por subdomínio, JWT do Supabase,
+RBAC granular e auditoria; worker arq com marca d'água (Pillow); providers
+abstratos com mock; frontend React com white label em runtime, painel,
+clientes, imóveis, financeiro e configurações; infra Docker Compose, Caddy e
+CI com Postgres de serviço.
 
-**Banco (`supabase/migrations/`)**
-- `0001_core` — tenants, branding, subdomínios, módulos, usuários, papéis,
-  permissões, auditoria, chaves de API. Infraestrutura de RLS
-  (`core.current_tenant_id()`, `core.apply_tenant_rls()`) e papel `app_api`.
-- `0002_crm` — clientes PF/PJ, papéis acumuláveis, contatos, documentos com
-  validade, timeline de interações.
-- `0003_properties` — imóveis, fotos (original + marcada), mídias,
-  proprietários, código sequencial por tenant (`IM-0001`).
-- `0004_finance` — plano de contas, centros de custo, contas a pagar/receber,
-  views de fluxo de caixa e DRE por competência.
-- `0005_provisioning` — `provision_tenant`, `attach_user`,
-  `resolve_user_context`, `tenant_enabled_modules`.
-- `0006_sales` — casca do módulo de Vendas (tabelas vazias de lógica).
+**Decisões:** testes rodam com papel comum de banco (superusuário ignora RLS
+silenciosamente); dados só pela API, RLS como segunda defesa; identificadores
+e dinheiro em monoespaçada com etiqueta de código.
 
-**API (`apps/api/`)** — FastAPI, 51 rotas em `/api/v1`
-- Tenancy por subdomínio + JWT do Supabase; RBAC granular (módulo × ação);
-  auditoria na mesma transação da operação auditada.
-- Clientes: validação de CPF/CNPJ, endereço por CEP (ViaCEP), documentos com
-  alerta de vencimento, timeline.
-- Imóveis: CRUD, proprietários, upload de fotos com marca d'água em fila.
-- Financeiro: lançamentos, baixa, cancelamento, comprovante, fluxo de caixa
-  de 90 dias e DRE.
-- Providers abstratos (pagamento, assinatura, NFS-e, mensageria, voz) com
-  implementações mock.
-
-**Worker (`app/workers/`)** — arq + Redis; marca d'água com Pillow (logo do
-tenant), reprocessamento em lote quando o logo muda.
-
-**Frontend (`apps/web/`)** — React + Vite + TS + Tailwind v4
-- Login com a marca do tenant, navegação condicional por plano e permissão,
-  painel, clientes (lista/ficha/documentos/timeline), imóveis (lista/ficha/
-  fotos), financeiro (lançamentos, fluxo de caixa, DRE), configurações
-  (identidade visual, equipe, auditoria), casca de Vendas.
-- Branding aplicado em runtime via CSS variables.
-
-**Infra** — Docker Compose (api, worker, redis, caddy), Caddyfile com wildcard
-de subdomínio, CI no GitHub Actions com Postgres de serviço.
-
-### Verificação
-- 66 testes passando contra Postgres real: isolamento entre tenants, RBAC,
-  gating de módulo, motor financeiro (baixa, cancelamento, fluxo, DRE) e
-  marca d'água. `ruff check` e `ruff format` limpos; build do frontend OK.
-- Interface conferida por captura de tela em desktop e mobile.
-
-### Decisões tomadas nesta fase
-- **Testes rodam com papel comum de banco, não superusuário.** Superusuário
-  ignora RLS silenciosamente; testar assim mascararia falhas de isolamento.
-  O fixture cria `crm_test_api` dentro de `app_api`, igual à produção.
-- **Consulta de dados só pela API.** O frontend usa o Supabase apenas para
-  autenticação; RLS é a segunda linha de defesa, não a primeira.
-- **Identificadores e dinheiro em monoespaçada**, com etiqueta de código
-  (`IM-0001`) como elemento visual recorrente — espelha a etiqueta física do
-  chaveiro e alinha números em coluna.
-
-### Correções encontradas na verificação
-- Busca de clientes por termo sem dígitos casava com todo cliente que tivesse
-  CPF/CNPJ preenchido (cláusula `like '%%'`).
-- `_USER_SELECT.format()` colidia com o literal `'{}'` do SQL.
-- Situação do imóvel era comunicada só por cor; virou selo com texto.
-- Cores de "Reservado" e "Em manutenção" eram indistinguíveis na barra da
-  carteira.
-
-### Pendências para as próximas fases
-- Credenciais sandbox (Asaas, ClickSign, Focus NFe) — necessárias na Fase 2.
-- Projeto Supabase real (URL, chaves, buckets de Storage) para publicar.
-- Domínio base dos subdomínios, para o wildcard TLS no Caddy.
-- Convite de colaborador por e-mail (hoje o vínculo com o Supabase Auth é
-  feito no primeiro acesso).
+**Correções encontradas na verificação:** busca por termo sem dígitos casava
+com todo cliente com CPF preenchido; `str.format` colidia com o literal
+`'{}'` do SQL; situação do imóvel comunicada só por cor; cores de "Reservado"
+e "Em manutenção" indistinguíveis.
 
 ---
 
 ## Fase 0 — Planejamento (2026-07-24) ✅
 
-- `docs/ARQUITETURA.md`, `docs/MODELO-DE-DADOS.md`, `docs/DECISOES-TECNICAS.md`
-  aprovados pelo cliente.
+`docs/ARQUITETURA.md`, `docs/MODELO-DE-DADOS.md` e `docs/DECISOES-TECNICAS.md`
+aprovados pelo cliente.
 
 ---
 
-## Próximo: Fase 2 — Locação core
+## Próximo: Fase 3 — Financeiro avançado
 
-CRM de locação (funil próprio, kanban, SLA, distribuição de leads), contratos
-com ClickSign e motor de cobrança com split via Asaas em sandbox, recibos.
+NFS-e automatizada sobre a taxa de administração com painel de conciliação,
+fechamento e pagamento dos repasses com extrato em PDF, e relatórios do
+proprietário (incluindo informe de rendimentos).

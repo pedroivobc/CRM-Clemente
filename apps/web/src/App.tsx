@@ -7,11 +7,14 @@ import { AppShell } from "@/components/AppShell";
 import { Card, ErrorNote, Spinner } from "@/components/ui";
 import { ClienteDetalhe } from "@/pages/ClienteDetalhe";
 import { Clientes } from "@/pages/Clientes";
+import { Cobrancas } from "@/pages/Cobrancas";
+import { ContratoDetalhe, Contratos } from "@/pages/Contratos";
 import { Configuracoes } from "@/pages/Configuracoes";
 import { Dashboard } from "@/pages/Dashboard";
 import { Imoveis } from "@/pages/Imoveis";
 import { ImovelDetalhe } from "@/pages/ImovelDetalhe";
 import { Financeiro } from "@/pages/Financeiro";
+import { Funil } from "@/pages/Funil";
 import { Vendas } from "@/pages/Vendas";
 
 const queryClient = new QueryClient({
@@ -70,6 +73,19 @@ function Gate() {
         <Route path="/imoveis" element={<Imoveis />} />
         <Route path="/imoveis/:id" element={<ImovelDetalhe />} />
         <Route path="/financeiro" element={<Financeiro />} />
+        <Route path="/funil" element={<ModuleRoute module="module_rentals" element={<Funil />} />} />
+        <Route
+          path="/contratos"
+          element={<ModuleRoute module="module_rentals" element={<Contratos />} />}
+        />
+        <Route
+          path="/contratos/:id"
+          element={<ModuleRoute module="module_rentals" element={<ContratoDetalhe />} />}
+        />
+        <Route
+          path="/cobrancas"
+          element={<ModuleRoute module="module_rentals" element={<Cobrancas />} />}
+        />
         <Route path="/vendas" element={<ModuleRoute module="module_sales" element={<Vendas />} />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />

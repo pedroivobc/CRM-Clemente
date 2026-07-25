@@ -238,3 +238,163 @@ export type ExpiringDocument = {
   client_name: string;
   days_left: number;
 };
+
+/* ── Locação ──────────────────────────────────────────────────────────── */
+
+export type Stage = {
+  id: string;
+  key: string;
+  name: string;
+  sort_order: number;
+  sla_hours: number | null;
+  is_won: boolean;
+};
+
+export type Lead = {
+  id: string;
+  stage_id: string;
+  stage_name: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  source: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  property_id: string | null;
+  property_code: string | null;
+  assigned_to: string | null;
+  assigned_name: string | null;
+  status: "aberto" | "ganho" | "perdido";
+  loss_reason: string | null;
+  notes: string | null;
+  stage_since: string;
+  hours_in_stage: number;
+  sla_hours: number | null;
+  sla_breached: boolean;
+  created_at: string;
+};
+
+export type Board = { pipeline_id: string; stages: Stage[]; leads: Lead[] };
+
+export type LossReason = { id: string; name: string };
+
+export type ContractParty = {
+  client_id: string;
+  name: string;
+  role: "locatario" | "locador" | "fiador";
+  is_payee: boolean;
+  share_pct: string;
+  wallet_id: string | null;
+};
+
+export type Contract = {
+  id: string;
+  code: string;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  rent_amount: string;
+  condo_fee: string;
+  iptu_amount: string;
+  insurance_amount: string;
+  total_monthly: string;
+  admin_fee_pct: string;
+  admin_fee_amount: string;
+  price_index: "IGPM" | "IPCA";
+  start_date: string;
+  end_date: string;
+  due_day: number;
+  guarantee_type: string | null;
+  guarantee_amount: string | null;
+  late_fine_pct: string;
+  daily_interest_pct: string;
+  punctuality_discount: string;
+  status: "rascunho" | "em_assinatura" | "ativo" | "encerrado" | "cancelado";
+  signed_doc_path: string | null;
+  last_adjustment_at: string | null;
+  next_adjustment_at: string;
+  adjustment_due: boolean;
+  days_to_expiry: number;
+  parties: ContractParty[];
+  notes: string | null;
+  created_at: string;
+};
+
+export type ChargeItem = {
+  kind: string;
+  description: string | null;
+  amount: string;
+  beneficiary: "owner" | "agency";
+};
+
+export type ChargeSplit = {
+  beneficiary: "agency" | "owner";
+  client_id: string | null;
+  wallet_id: string | null;
+  amount: string;
+};
+
+export type Charge = {
+  id: string;
+  contract_id: string;
+  contract_code: string;
+  property_code: string;
+  tenant_name: string | null;
+  competence: string;
+  due_date: string;
+  gross_amount: string;
+  status: "pendente" | "pago" | "vencido" | "baixado_manual" | "cancelado";
+  overdue: boolean;
+  days_late: number;
+  provider_charge_id: string | null;
+  boleto_line: string | null;
+  boleto_url: string | null;
+  pix_copy_paste: string | null;
+  pix_qrcode: string | null;
+  receipt_path: string | null;
+  paid_amount: string | null;
+  paid_at: string | null;
+  items: ChargeItem[];
+  splits: ChargeSplit[];
+  created_at: string;
+};
+
+export type PayoutItem = {
+  kind: string;
+  description: string | null;
+  amount: string;
+  charge_id: string | null;
+};
+
+export type Payout = {
+  id: string;
+  owner_client_id: string;
+  owner_name: string;
+  reference_month: string;
+  gross_amount: string;
+  admin_fee: string;
+  deductions: string;
+  net_amount: string;
+  status: "aberto" | "fechado" | "pago" | "cancelado";
+  items: PayoutItem[];
+};
+
+export type ExpiringContract = {
+  id: string;
+  code: string;
+  end_date: string;
+  rent_amount: string;
+  days_left: number;
+  property_code: string;
+  property_title: string;
+  tenant_name: string | null;
+};
+
+export type AdjustmentPreview = {
+  index_name: string;
+  months_used: number;
+  accumulated_pct: string;
+  previous_rent: string;
+  new_rent: string;
+  difference: string;
+};

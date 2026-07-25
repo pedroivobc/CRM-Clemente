@@ -2,9 +2,12 @@ import {
   Building2,
   ChevronDown,
   FileSignature,
+  KanbanSquare,
   LayoutDashboard,
   LogOut,
   Menu,
+  Receipt,
+  ScrollText,
   Settings,
   Users,
   Wallet,
@@ -37,7 +40,33 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Módulos",
+    label: "Locação",
+    items: [
+      {
+        to: "/funil",
+        label: "Funil",
+        icon: KanbanSquare,
+        module: "module_rentals",
+        permission: ["locacao", "view"],
+      },
+      {
+        to: "/contratos",
+        label: "Contratos",
+        icon: ScrollText,
+        module: "module_rentals",
+        permission: ["locacao", "view"],
+      },
+      {
+        to: "/cobrancas",
+        label: "Cobranças",
+        icon: Receipt,
+        module: "module_rentals",
+        permission: ["financeiro", "view"],
+      },
+    ],
+  },
+  {
+    label: "Vendas",
     items: [
       {
         to: "/vendas",
@@ -177,7 +206,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="font-display text-[14px] font-semibold">{displayName}</span>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
       </div>
