@@ -1,5 +1,74 @@
 # PROGRESS
 
+## Fase 4 — Operação (2026-07-25) ✅
+
+Chaves, vistorias e chamados de manutenção: a parte do dia a dia que hoje vive
+em caderno, grupo de WhatsApp e memória de quem atendeu.
+
+### Entregue
+
+**Banco (`supabase/migrations/0009_operations.sql`)** — 17 tabelas
+- `keys`: `property_keys` com posição no quadro, `key_movements` com prazo de
+  devolução e assinatura de quem levou.
+- `inspections`: vistoria → cômodos → itens → fotos, mais leitura de medidores
+  e `issues` com responsabilidade, estado de entrada e estado de saída.
+- `maintenance`: prestadores com especialidades e nota, chamados com código
+  `CH-0001`, orçamentos, eventos, fotos antes/depois, avaliações e a regra de
+  alçada do tenant (padrão R$ 300,00).
+
+**Domínio (`app/domain/operations.py`)** — funções puras
+- `compare_inspections`: aponta o que piorou entre entrada e saída e **sugere**
+  a responsabilidade, sempre carregando os dois estados que motivaram a
+  sugestão. Piora de um degrau fica indefinida (pode ser desgaste); de dois ou
+  mais, sugere locatário; item que não existia na entrada não vira cobrança.
+- `who_approves`: quem precisa aprovar o orçamento, e por quê.
+- `key_status`, `inspection_progress`, `cheapest_quote`, `quote_spread`,
+  `average_rating`.
+
+**API** — 26 rotas novas (109 no total)
+- Chaveiro: cadastro, retirada com assinatura desenhada na tela, devolução,
+  histórico e alerta de chave fora do prazo.
+- Vistorias: roteiro padrão de 5 cômodos, estado por item, foto por item,
+  medidores, conclusão com comparativo automático e **laudo em PDF com a marca
+  da imobiliária** (WeasyPrint, fotos embutidas como data URI).
+- Chamados: abertura, triagem (define quem paga), até três orçamentos,
+  aprovação conforme a alçada, execução, conclusão com lançamento no
+  financeiro e avaliação do prestador.
+
+**Frontend**
+- Chaveiro com alerta de atraso no topo e devolução em um clique.
+- Tela de vistoria **mobile-first**: cabeçalho fixo com o progresso, quatro
+  botões grandes de estado por item, câmera do celular por item, cômodo
+  concluído recolhe sozinho.
+- Chamado com trilha do fluxo, comparação de orçamentos com o menor destacado,
+  aviso de quem aprova e por quê, histórico em ordem cronológica e avaliação.
+
+### Descobertas
+- Uma chave fora do prazo tinha botão de devolver, mas a que estava só
+  emprestada não: a listagem vinha do chaveiro, e é a **retirada** que carrega
+  o identificador usado para devolver. A seção passou a ler as retiradas em
+  aberto.
+- `payload.notes or f"..." if cost else "..."` descartava silenciosamente a
+  observação da equipe quando o chamado era concluído sem custo — precedência
+  de operador, corrigida e coberta por teste.
+- Valores apareciam como `1180.00` no histórico e nos campos de formulário.
+  Interface em português escreve `R$ 1.180,00` e aceita vírgula: criados
+  `app/core/format.brl` no backend e `toDecimalInput`/`toDecimalString` no
+  frontend (aplicados também ao desconto de repasse, que já sofria disso).
+
+### Verificação
+- 238 testes passando (30 do fluxo de operação, 26 do domínio de vistoria e
+  alçada, mais os das fases anteriores).
+- `ruff` limpo, `tsc` e build do frontend OK, telas conferidas por captura em
+  1440px e em 390px.
+
+### Pendências
+- Prestador ainda não recebe o pedido de orçamento por WhatsApp: depende da
+  Evolution API, sem credencial.
+- Laudo de vistoria ainda não é assinado eletronicamente (ClickSign).
+
+---
+
 ## Módulo de Vendas (2026-07-25) ✅
 
 O módulo de Vendas deixa de ser casca e passa a ser **autônomo**: operação,
@@ -110,7 +179,12 @@ aprovados pelo cliente.
 1. **Fase 3 — Financeiro avançado:** NFS-e sobre a taxa de administração com
    painel de conciliação, fechamento e pagamento dos repasses com extrato em
    PDF, informe anual de rendimentos.
-2. **Vendas — contrato e financiamento:** contrato de compra e venda com
-   assinatura eletrônica, acompanhamento do processo junto ao banco.
-3. **Fase 4 — Operação:** chaves, vistorias com laudo em PDF e chamados de
-   manutenção com prestadores.
+2. **Vendas — biblioteca de modelos de contrato:** compra e venda simples,
+   permuta, dação em pagamento, compra com financiamento bancário e compra e
+   venda com pagamento parcelado, como minutas para a imobiliária escolher e
+   levar ao jurídico. Imóvel de empreendimento usa o modelo da construtora. O
+   sistema **não** gera contrato de compra e venda (ver ADR 21).
+3. **Acompanhamento de financiamento:** etapas do processo junto ao banco,
+   ligadas ao negócio fechado.
+4. **Integrações reais:** substituir os mocks assim que houver credenciais de
+   sandbox (Asaas, ClickSign, Focus NFe, Evolution).

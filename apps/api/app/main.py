@@ -18,7 +18,10 @@ from app.modules import (
     contracts,
     dashboard,
     finance,
+    inspections,
+    maintenance,
     properties,
+    property_keys,
     rentals_crm,
     rentals_dashboard,
     sales,
@@ -87,6 +90,9 @@ for module in (
     rentals_dashboard,
     contracts,
     billing,
+    property_keys,
+    inspections,
+    maintenance,
     sales,
 ):
     app.include_router(module.router, prefix="/api/v1")

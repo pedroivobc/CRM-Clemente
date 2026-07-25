@@ -15,6 +15,11 @@ import { Imoveis } from "@/pages/Imoveis";
 import { ImovelDetalhe } from "@/pages/ImovelDetalhe";
 import { Financeiro } from "@/pages/Financeiro";
 import { Funil } from "@/pages/Funil";
+import { Chamados } from "@/pages/operacao/Chamados";
+import { ChamadoDetalhe } from "@/pages/operacao/ChamadoDetalhe";
+import { Chaves } from "@/pages/operacao/Chaves";
+import { Vistorias } from "@/pages/operacao/Vistorias";
+import { VistoriaDetalhe } from "@/pages/operacao/VistoriaDetalhe";
 import { Negocios } from "@/pages/vendas/Negocios";
 import { FunilVendas } from "@/pages/vendas/FunilVendas";
 import { Propostas } from "@/pages/vendas/Propostas";
@@ -87,6 +92,26 @@ function Gate() {
         <Route
           path="/cobrancas"
           element={<ModuleRoute module="module_rentals" element={<Cobrancas />} />}
+        />
+        <Route
+          path="/chaves"
+          element={<ModuleRoute module="module_rentals" element={<Chaves />} />}
+        />
+        <Route
+          path="/vistorias"
+          element={<ModuleRoute module="module_rentals" element={<Vistorias />} />}
+        />
+        <Route
+          path="/vistorias/:id"
+          element={<ModuleRoute module="module_rentals" element={<VistoriaDetalhe />} />}
+        />
+        <Route
+          path="/chamados"
+          element={<ModuleRoute module="module_rentals" element={<Chamados />} />}
+        />
+        <Route
+          path="/chamados/:id"
+          element={<ModuleRoute module="module_rentals" element={<ChamadoDetalhe />} />}
         />
         <Route
           path="/vendas/funil"

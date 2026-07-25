@@ -10,3 +10,4 @@ arq==0.26.3
 redis==5.2.1
 Pillow==11.0.0
 python-multipart==0.0.20
+weasyprint==69.0

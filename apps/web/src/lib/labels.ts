@@ -1,4 +1,4 @@
-import type { PropertyStatus } from "./types";
+import type { Condition, PropertyStatus, TicketStatus } from "./types";
 
 /**
  * As cores precisam ser distinguíveis lado a lado na barra da carteira —
@@ -117,4 +117,98 @@ export const COMMISSION_BENEFICIARIES: Record<string, string> = {
   lister: "Corretor captador",
   seller_broker: "Corretor vendedor",
   partner: "Parceiro",
+};
+
+/* ── Operação ─────────────────────────────────────────────────────────── */
+
+/**
+ * A escala de conservação vai do melhor ao pior e é lida de relance na tela
+ * do vistoriador — por isso cada degrau tem cor própria, e não tons vizinhos.
+ */
+export const CONDITIONS: { key: Condition; label: string; color: string }[] = [
+  { key: "otimo", label: "Ótimo", color: "#0e7c66" },
+  { key: "bom", label: "Bom", color: "#1d4ed8" },
+  { key: "regular", label: "Regular", color: "#a1560a" },
+  { key: "ruim", label: "Ruim", color: "#b42318" },
+];
+
+export const CONDITION_LABELS: Record<string, string> = Object.fromEntries(
+  CONDITIONS.map((c) => [c.key, c.label]),
+);
+
+export const INSPECTION_KINDS: Record<string, string> = {
+  entrada: "Entrada",
+  saida: "Saída",
+  periodica: "Periódica",
+};
+
+export const INSPECTION_STATUS: Record<
+  string,
+  { label: string; tone: "neutral" | "positive" | "caution" | "critical" | "brand" }
+> = {
+  agendada: { label: "Agendada", tone: "neutral" },
+  em_andamento: { label: "Em andamento", tone: "brand" },
+  concluida: { label: "Concluída", tone: "positive" },
+  cancelada: { label: "Cancelada", tone: "neutral" },
+};
+
+export const METERS: Record<string, string> = { agua: "Água", luz: "Luz", gas: "Gás" };
+
+export const RESPONSIBILITIES: Record<string, string> = {
+  locatario: "Locatário",
+  proprietario: "Proprietário",
+  indefinido: "A definir",
+};
+
+export const SPECIALTIES: Record<string, string> = {
+  pintura: "Pintura",
+  eletrica: "Elétrica",
+  hidraulica: "Hidráulica",
+  reforma: "Reforma",
+  marcenaria: "Marcenaria",
+  chaveiro: "Chaveiro",
+  limpeza: "Limpeza",
+  jardinagem: "Jardinagem",
+  ar_condicionado: "Ar-condicionado",
+  gas: "Gás",
+  outro: "Outro",
+};
+
+export const TICKET_STATUS: Record<
+  string,
+  { label: string; tone: "neutral" | "positive" | "caution" | "critical" | "brand" }
+> = {
+  aberto: { label: "Aberto", tone: "brand" },
+  triagem: { label: "Em triagem", tone: "brand" },
+  orcamento: { label: "Orçando", tone: "caution" },
+  aprovacao: { label: "Aguardando aprovação", tone: "caution" },
+  execucao: { label: "Em execução", tone: "brand" },
+  concluido: { label: "Concluído", tone: "positive" },
+  cancelado: { label: "Cancelado", tone: "neutral" },
+};
+
+/** A ordem é a do fluxo do chamado, usada na trilha de etapas da tela. */
+export const TICKET_FLOW: TicketStatus[] = [
+  "aberto",
+  "triagem",
+  "orcamento",
+  "aprovacao",
+  "execucao",
+  "concluido",
+];
+
+export const PRIORITIES: Record<
+  string,
+  { label: string; tone: "neutral" | "caution" | "critical" }
+> = {
+  baixa: { label: "Baixa", tone: "neutral" },
+  normal: { label: "Normal", tone: "neutral" },
+  alta: { label: "Alta", tone: "caution" },
+  urgente: { label: "Urgente", tone: "critical" },
+};
+
+export const PAYERS: Record<string, string> = {
+  proprietario: "Proprietário",
+  locatario: "Locatário",
+  imobiliaria: "Imobiliária",
 };

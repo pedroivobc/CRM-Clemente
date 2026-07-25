@@ -23,7 +23,7 @@ import {
   Tr,
 } from "@/components/ui";
 import { api } from "@/lib/api";
-import { date, money, monthLabel } from "@/lib/format";
+import { date, money, monthLabel, toDecimalString } from "@/lib/format";
 import type { Charge, Payout } from "@/lib/types";
 
 const CHARGE_STATUS: Record<
@@ -569,7 +569,7 @@ function DeductionDialog({
       api.post("/billing/payouts/deductions", {
         owner_client_id: payout!.owner_client_id,
         reference_month: competence,
-        amount,
+        amount: toDecimalString(amount),
         description,
       }),
     onSuccess: () => {

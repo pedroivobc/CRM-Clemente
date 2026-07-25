@@ -89,3 +89,21 @@ export function relativeDays(days: number): string {
   if (days === -1) return "ontem";
   return days > 0 ? `em ${days} dias` : `há ${Math.abs(days)} dias`;
 }
+
+/**
+ * Dinheiro em campo de formulário.
+ *
+ * A interface é toda em português, então o usuário digita `1.480,50`; a API
+ * espera `1480.50`. As duas funções abaixo fazem a ponte, e por isso o valor
+ * guardado no estado do campo está **sempre** na forma brasileira.
+ */
+export function toDecimalInput(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "";
+  return String(value).replace(".", ",");
+}
+
+export function toDecimalString(value: string): string {
+  const clean = value.trim().replace(/\s/g, "");
+  if (!clean) return "";
+  return clean.replace(/\./g, "").replace(",", ".");
+}

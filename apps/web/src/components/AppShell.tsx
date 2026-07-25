@@ -1,8 +1,10 @@
 import {
   Building2,
   ChevronDown,
+  ClipboardCheck,
   Handshake,
   KanbanSquare,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -12,6 +14,7 @@ import {
   Settings,
   Users,
   Wallet,
+  Wrench,
   X,
 } from "lucide-react";
 import * as React from "react";
@@ -38,6 +41,27 @@ const GROUPS: NavGroup[] = [
       { to: "/", label: "Painel", icon: LayoutDashboard },
       { to: "/clientes", label: "Clientes", icon: Users, permission: ["clientes", "view"] },
       { to: "/imoveis", label: "Imóveis", icon: Building2, permission: ["imoveis", "view"] },
+      {
+        to: "/chaves",
+        label: "Chaves",
+        icon: KeyRound,
+        module: "module_rentals",
+        permission: ["chaves", "view"],
+      },
+      {
+        to: "/vistorias",
+        label: "Vistorias",
+        icon: ClipboardCheck,
+        module: "module_rentals",
+        permission: ["vistorias", "view"],
+      },
+      {
+        to: "/chamados",
+        label: "Manutenção",
+        icon: Wrench,
+        module: "module_rentals",
+        permission: ["manutencao", "view"],
+      },
     ],
   },
   {

@@ -546,3 +546,195 @@ export type CommissionRule = {
   lister_share_pct: string;
   seller_share_pct: string;
 };
+
+/* ── Operação ─────────────────────────────────────────────────────────── */
+
+export type PropertyKey = {
+  id: string;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  label: string;
+  copies: number;
+  board_position: string | null;
+  notes: string | null;
+  active: boolean;
+  out_count: number;
+  overdue: boolean;
+  current_holder: string | null;
+  due_back_at: string | null;
+};
+
+export type KeyMovement = {
+  id: string;
+  key_id: string;
+  key_label: string;
+  board_position: string | null;
+  property_id: string;
+  property_code: string;
+  taken_by: string;
+  purpose: string;
+  taken_at: string;
+  due_back_at: string;
+  returned_at: string | null;
+  signature_url: string | null;
+  is_out: boolean;
+  is_overdue: boolean;
+  hours_overdue: number;
+  notes: string | null;
+};
+
+export type Condition = "otimo" | "bom" | "regular" | "ruim";
+
+export type InspectionPhoto = {
+  id: string;
+  url: string;
+  caption: string | null;
+  item_id: string | null;
+};
+
+export type InspectionItem = {
+  id: string;
+  name: string;
+  condition: Condition | null;
+  notes: string | null;
+  sort_order: number;
+  photos: InspectionPhoto[];
+};
+
+export type InspectionRoom = {
+  id: string;
+  name: string;
+  sort_order: number;
+  notes: string | null;
+  items: InspectionItem[];
+};
+
+export type InspectionIssue = {
+  id: string;
+  room_name: string | null;
+  description: string;
+  responsibility: "locatario" | "proprietario" | "indefinido";
+  estimated_cost: string | null;
+  entry_condition: Condition | null;
+  exit_condition: Condition | null;
+  resolved: boolean;
+};
+
+export type InspectionMeter = { id: string; meter: "agua" | "luz" | "gas"; reading: string };
+
+export type InspectionKind = "entrada" | "saida" | "periodica";
+export type InspectionStatus = "agendada" | "em_andamento" | "concluida" | "cancelada";
+
+/** Linha da listagem: o suficiente para a fila do vistoriador. */
+export type InspectionSummary = {
+  id: string;
+  kind: InspectionKind;
+  status: InspectionStatus;
+  scheduled_at: string | null;
+  performed_at: string | null;
+  property_code: string;
+  property_title: string;
+  inspector_name: string | null;
+  total_items: number;
+  filled_items: number;
+  progress_pct: number;
+  report_url: string | null;
+};
+
+export type Inspection = {
+  id: string;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  contract_id: string | null;
+  kind: InspectionKind;
+  inspector_user_id: string | null;
+  inspector_name: string | null;
+  scheduled_at: string | null;
+  performed_at: string | null;
+  status: InspectionStatus;
+  general_notes: string | null;
+  report_url: string | null;
+  compared_with_id: string | null;
+  progress_pct: number;
+  total_items: number;
+  filled_items: number;
+  rooms: InspectionRoom[];
+  meters: InspectionMeter[];
+  issues: InspectionIssue[];
+  created_at: string;
+};
+
+export type ServiceProvider = {
+  id: string;
+  name: string;
+  document: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  avg_rating: string | null;
+  jobs_done: number;
+  active: boolean;
+  specialties: string[];
+};
+
+export type TicketQuote = {
+  id: string;
+  provider_id: string;
+  provider_name: string;
+  amount: string;
+  description: string | null;
+  lead_days: number | null;
+  valid_until: string | null;
+  status: "pendente" | "aprovado" | "recusado";
+  is_cheapest: boolean;
+};
+
+export type TicketEvent = {
+  id: string;
+  kind: string;
+  summary: string;
+  user_name: string | null;
+  created_at: string;
+};
+
+export type TicketPhoto = { id: string; moment: string; url: string; caption: string | null };
+
+export type TicketStatus =
+  | "aberto"
+  | "triagem"
+  | "orcamento"
+  | "aprovacao"
+  | "execucao"
+  | "concluido"
+  | "cancelado";
+
+export type Ticket = {
+  id: string;
+  code: string;
+  property_id: string;
+  property_code: string;
+  property_title: string;
+  contract_id: string | null;
+  title: string;
+  description: string | null;
+  specialty: string | null;
+  priority: "baixa" | "normal" | "alta" | "urgente";
+  status: TicketStatus;
+  payer: "proprietario" | "locatario" | "imobiliaria" | null;
+  opened_by: string | null;
+  approved_at: string | null;
+  approved_quote_id: string | null;
+  final_cost: string | null;
+  scheduled_for: string | null;
+  completed_at: string | null;
+  approver: string | null;
+  approver_reason: string | null;
+  quote_spread: string;
+  quotes: TicketQuote[];
+  events: TicketEvent[];
+  photos: TicketPhoto[];
+  rating: number | null;
+  created_at: string;
+};

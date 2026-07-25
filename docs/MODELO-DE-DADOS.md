@@ -324,47 +324,59 @@ Painel de conciliação = consulta: toda `charge` paga sem `nfse_invoice` autori
 
 ## Schemas operacionais
 
+> Implementado na Fase 4 (`0009_operations.sql`). Os nomes abaixo são os que
+> existem no banco: cada schema tem tabelas curtas (`inspections.rooms`,
+> `inspections.items`), sem repetir o schema no nome da tabela.
+
 ```mermaid
 erDiagram
     %% keys
     property_keys ||--o{ key_movements : "retirada/devolução"
     property_keys {
         uuid property_id FK
+        text label "jogo principal, reserva…"
         int copies
         text board_position "código no chaveiro"
+        boolean active
     }
     key_movements {
         uuid taken_by_client_id FK
         uuid taken_by_user_id FK
+        text taken_by_name "quem não é cliente nem da equipe"
         text purpose
         timestamptz due_back_at "alerta de atraso"
         timestamptz returned_at
-        text signature_path "assinatura em canvas"
+        text signature_path "assinatura desenhada na tela"
     }
 
     %% inspections
-    inspections ||--o{ inspection_rooms : "por cômodo"
-    inspection_rooms ||--o{ inspection_items : "checklist"
-    inspection_items ||--o{ inspection_photos : "ilimitadas"
+    inspections ||--o{ rooms : "por cômodo"
+    rooms ||--o{ items : "checklist"
+    items ||--o{ photos : "ilimitadas"
     inspections ||--o{ meter_readings : "água/luz/gás"
-    inspections ||--o{ inspection_issues : "pendências saída"
+    inspections ||--o{ issues : "pendências da saída"
     inspections {
         uuid property_id FK
         uuid contract_id FK
         text kind "entrada | saida | periodica"
         uuid inspector_user_id FK
-        text report_path "laudo PDF + ClickSign"
-        text status
+        uuid compared_with_id FK "a vistoria de entrada correspondente"
+        text report_path "laudo em PDF com a marca do tenant"
+        text status "agendada | em_andamento | concluida | cancelada"
     }
-    inspection_items {
-        text item_name
+    items {
+        text name
         text condition "otimo | bom | regular | ruim"
         text notes
+        int sort_order
     }
-    inspection_issues {
+    issues {
         text description
-        text responsibility "locatario | proprietario"
+        text responsibility "locatario | proprietario | indefinido"
+        text entry_condition "estado que motivou a sugestão"
+        text exit_condition
         numeric estimated_cost
+        boolean resolved
     }
 ```
 
@@ -372,30 +384,41 @@ erDiagram
 erDiagram
     %% maintenance
     service_providers ||--o{ provider_specialties : ""
-    tickets ||--o{ ticket_quotes : "até 3 orçamentos"
-    tickets ||--o{ ticket_events : "linha do tempo"
-    tickets ||--o{ ticket_photos : "antes/depois"
-    service_providers ||--o{ ticket_quotes : ""
-    tickets ||--o| ticket_ratings : "avaliação do locatário"
+    tickets ||--o{ quotes : "até 3 orçamentos"
+    tickets ||--o{ events : "linha do tempo"
+    tickets ||--o{ photos : "antes/depois"
+    service_providers ||--o{ quotes : ""
+    tickets ||--o| ratings : "avaliação do serviço"
 
+    approval_rules {
+        numeric agency_limit_amount "alçada da imobiliária, padrão 300,00"
+    }
     service_providers {
-        uuid client_id FK
-        numeric avg_rating
-        text whatsapp
+        text name
+        text document
+        text phone
+        numeric avg_rating "média das avaliações"
+        int jobs_done
     }
     provider_specialties {
-        text specialty "pintura | eletrica | hidraulica | reforma"
+        text specialty "pintura | eletrica | hidraulica | reforma | …"
     }
     tickets {
+        text code "CH-0001"
         uuid property_id FK
         uuid contract_id FK
         uuid opened_by_client_id FK "portal do locatário"
         text status "aberto | triagem | orcamento | aprovacao | execucao | concluido"
+        text priority "baixa | normal | alta | urgente"
         text payer "proprietario | locatario | imobiliaria"
-        uuid approved_by FK "imobiliária ou proprietário"
+        uuid approved_quote_id FK
+        uuid approved_by_user_id FK
+        numeric final_cost "lançado no financeiro conforme o payer"
     }
-    ticket_quotes {
+    quotes {
         numeric amount
+        int lead_days
+        date valid_until
         text status "pendente | aprovado | recusado"
     }
 
