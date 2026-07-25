@@ -56,16 +56,16 @@ async def test_permissoes_do_corretor_nao_incluem_financeiro(api):
 
 async def test_modulo_de_vendas_bloqueado_para_plano_locacao(client_factory):
     api_locacao = client_factory("b")  # plano "locacao"
-    resp = await api_locacao.get("/api/v1/sales/status")
+    resp = await api_locacao.get("/api/v1/sales/board")
     assert resp.status_code == 403
     assert "não contratado" in resp.json()["detail"]
 
 
 async def test_modulo_de_vendas_liberado_para_plano_completo(client_factory):
     api_completo = client_factory("a")  # plano "completo"
-    resp = await api_completo.get("/api/v1/sales/status")
+    resp = await api_completo.get("/api/v1/sales/board")
     assert resp.status_code == 200
-    assert resp.json()["status"] == "em_breve"
+    assert len(resp.json()["stages"]) == 7
 
 
 async def test_auditoria_registra_acoes_sensiveis(api):
