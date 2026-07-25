@@ -18,12 +18,14 @@ from app.core.config import get_settings
 BUCKET_PROPERTY_PHOTOS = "property-photos"
 BUCKET_DOCUMENTS = "documents"
 BUCKET_BRANDING = "branding"
+BUCKET_CONTRACTS = "contracts"
 BUCKET_REPORTS = "reports"
 
 ALL_BUCKETS = (
     BUCKET_PROPERTY_PHOTOS,
     BUCKET_DOCUMENTS,
     BUCKET_BRANDING,
+    BUCKET_CONTRACTS,
     BUCKET_REPORTS,
 )
 

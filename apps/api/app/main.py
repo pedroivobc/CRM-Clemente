@@ -12,7 +12,20 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.core.db import dispose_engine
-from app.modules import clients, dashboard, finance, properties, sales, session, tenants, users
+from app.modules import (
+    billing,
+    clients,
+    contracts,
+    dashboard,
+    finance,
+    properties,
+    rentals_crm,
+    sales,
+    session,
+    tenants,
+    users,
+)
+from app.webhooks import router as webhooks_router
 from app.workers.queue import close_pool
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -61,5 +74,20 @@ async def health() -> dict:
     return {"status": "ok", "env": settings.app_env}
 
 
-for module in (session, dashboard, tenants, users, clients, properties, finance, sales):
+for module in (
+    session,
+    dashboard,
+    tenants,
+    users,
+    clients,
+    properties,
+    finance,
+    rentals_crm,
+    contracts,
+    billing,
+    sales,
+):
     app.include_router(module.router, prefix="/api/v1")
+
+# Webhooks ficam fora de /api/v1: quem chama é o provedor, não o app.
+app.include_router(webhooks_router.router)
