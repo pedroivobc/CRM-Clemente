@@ -140,6 +140,15 @@ export type Property = {
   created_at: string;
 };
 
+export type ShowcaseSettings = {
+  public_key: string | null;
+  whatsapp: string | null;
+  phone: string | null;
+  email: string | null;
+  headline: string | null;
+  lead_capture_enabled: boolean;
+};
+
 export type WatermarkSettings = {
   enabled: boolean;
   position: "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";

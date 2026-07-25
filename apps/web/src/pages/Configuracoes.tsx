@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Upload } from "lucide-react";
+import { Check, Copy, Plus, Upload } from "lucide-react";
 import * as React from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
@@ -22,9 +22,9 @@ import { api } from "@/lib/api";
 import { applyBranding } from "@/lib/branding";
 import { dateTime } from "@/lib/format";
 import { AUDIT_ACTIONS, AUDIT_ENTITIES } from "@/lib/labels";
-import type { AuditEntry, Branding, Collaborator, Role } from "@/lib/types";
+import type { AuditEntry, Branding, Collaborator, Role, ShowcaseSettings } from "@/lib/types";
 
-type Tab = "marca" | "equipe" | "auditoria";
+type Tab = "marca" | "vitrine" | "equipe" | "auditoria";
 
 export function Configuracoes() {
   const { can } = useAuth();
@@ -32,6 +32,7 @@ export function Configuracoes() {
 
   const tabs: { value: Tab; label: string }[] = [
     { value: "marca", label: "Identidade visual" },
+    { value: "vitrine", label: "Vitrine e API" },
     { value: "equipe", label: "Equipe" },
     { value: "auditoria", label: "Auditoria" },
   ];
@@ -62,6 +63,7 @@ export function Configuracoes() {
       </div>
 
       {tab === "marca" ? <BrandingPanel canEdit={can("configuracoes", "edit")} /> : null}
+      {tab === "vitrine" ? <ShowcasePanel canEdit={can("imoveis", "edit")} /> : null}
       {tab === "equipe" ? <TeamPanel canEdit={can("configuracoes", "create")} /> : null}
       {tab === "auditoria" ? <AuditPanel /> : null}
     </>
@@ -239,6 +241,198 @@ function BrandingPanel({ canEdit }: { canEdit: boolean }) {
               Acento
             </span>
           </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function ShowcasePanel({ canEdit }: { canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = React.useState<ShowcaseSettings | null>(null);
+  const [copied, setCopied] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const { data } = useQuery({
+    queryKey: ["showcase-settings"],
+    queryFn: () => api.get<ShowcaseSettings>("/properties/settings/showcase"),
+  });
+
+  React.useEffect(() => {
+    if (data) setForm(data);
+  }, [data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.put<ShowcaseSettings>("/properties/settings/showcase", {
+        whatsapp: form!.whatsapp,
+        phone: form!.phone,
+        email: form!.email,
+        headline: form!.headline,
+        lead_capture_enabled: form!.lead_capture_enabled,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["showcase-settings"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  async function copy(label: string, value: string) {
+    await navigator.clipboard.writeText(value);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  if (!form) return null;
+
+  const base = `${window.location.origin}/public/${form.public_key ?? ""}`;
+  const embed = `<script src="${window.location.origin}/widget.js"\n        data-imob="${form.public_key ?? ""}"></script>`;
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
+      <div className="space-y-5">
+        <Card>
+          <CardHeader
+            title="Chave pública"
+            hint="Identifica sua vitrine. Não é senha — só dá acesso ao que você publicou."
+          />
+          <div className="space-y-4 px-5 py-4">
+            <div className="flex gap-2">
+              <Input readOnly value={form.public_key ?? "—"} className="font-mono text-[12px]" />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => copy("key", form.public_key ?? "")}
+                aria-label="Copiar chave"
+              >
+                {copied === "key" ? <Check /> : <Copy />}
+              </Button>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-[13px] font-medium text-ink-soft">Endpoints</p>
+              <ul className="space-y-1.5 font-mono text-[12px] text-muted">
+                <li>
+                  <span className="text-positive">GET</span> {base}/showcase
+                </li>
+                <li>
+                  <span className="text-positive">GET</span> {base}/properties
+                </li>
+                <li>
+                  <span className="text-positive">GET</span> {base}/properties/{"{slug}"}
+                </li>
+                <li>
+                  <span className="text-[var(--brand-primary)]">POST</span> {base}/leads
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-[13px] font-medium text-ink-soft">Widget para o seu site</p>
+                <Button variant="ghost" size="sm" onClick={() => copy("embed", embed)}>
+                  {copied === "embed" ? <Check /> : <Copy />}
+                  Copiar
+                </Button>
+              </div>
+              <pre className="overflow-x-auto rounded-md border border-line bg-sunken px-3 py-2.5 font-mono text-[12px] text-ink-soft">
+                {embed}
+              </pre>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Cole no HTML do site (WordPress, Wix ou próprio). Só aparecem os imóveis marcados
+                para publicação, com o endereço no nível que você escolher.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title="Contato da vitrine" hint="Como o visitante fala com você" />
+          <div className="space-y-4 px-5 py-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="WhatsApp">
+                <Input
+                  value={form.whatsapp ?? ""}
+                  disabled={!canEdit}
+                  onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+                  className="font-mono"
+                  placeholder="(32) 99999-9999"
+                />
+              </Field>
+              <Field label="Telefone">
+                <Input
+                  value={form.phone ?? ""}
+                  disabled={!canEdit}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  className="font-mono"
+                />
+              </Field>
+              <Field label="E-mail">
+                <Input
+                  value={form.email ?? ""}
+                  disabled={!canEdit}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </Field>
+              <Field label="Chamada do topo">
+                <Input
+                  value={form.headline ?? ""}
+                  disabled={!canEdit}
+                  onChange={(e) => setForm({ ...form, headline: e.target.value })}
+                  placeholder="O imóvel certo pra você"
+                />
+              </Field>
+            </div>
+
+            <label className="flex items-center gap-2.5 text-[13px]">
+              <input
+                type="checkbox"
+                checked={form.lead_capture_enabled}
+                disabled={!canEdit}
+                onChange={(e) => setForm({ ...form, lead_capture_enabled: e.target.checked })}
+                className="size-4 accent-[var(--brand-primary)]"
+              />
+              <span className="text-ink">Receber contatos enviados pela vitrine</span>
+            </label>
+
+            {error ? <ErrorNote>{error}</ErrorNote> : null}
+
+            {canEdit ? (
+              <div className="flex items-center gap-3">
+                <Button
+                  loading={save.isPending}
+                  onClick={() => {
+                    setError(null);
+                    save.mutate();
+                  }}
+                >
+                  Salvar
+                </Button>
+                {saved ? <span className="text-[13px] text-positive">Salvo.</span> : null}
+              </div>
+            ) : null}
+          </div>
+        </Card>
+      </div>
+
+      <Card className="h-fit">
+        <CardHeader title="Como funciona" />
+        <div className="space-y-3 px-5 py-4 text-[13px] text-ink-soft">
+          <p>
+            Cadastre o imóvel uma vez. Na ficha dele, ligue{" "}
+            <strong className="font-medium">Publicar no site</strong> — e ele passa a aparecer aqui.
+          </p>
+          <p>
+            A mesma chave serve para o site pronto, para o widget no seu site atual e para os
+            portais. Os dados são seus: nada fica preso no sistema.
+          </p>
+          <p className="text-muted">
+            O contato acima alimenta o botão de WhatsApp de cada anúncio, já com o código do imóvel
+            na mensagem.
+          </p>
         </div>
       </Card>
     </div>

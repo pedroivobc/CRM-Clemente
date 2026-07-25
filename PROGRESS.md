@@ -1,5 +1,52 @@
 # PROGRESS
 
+## Vitrine — API pública de imóveis (2026-07-25) ✅
+
+A primeira das três saídas do cadastro: uma API de leitura, sem login, que o
+site da imobiliária, o do corretor autônomo e um widget embutido consomem para
+exibir os imóveis. É o diferencial direto contra o Robust CRM, que tranca esse
+acesso atrás do suporte — aqui os dados são da imobiliária.
+Detalhes em `docs/API-PUBLICA-VITRINE.md`.
+
+### Entregue
+
+**Banco (`0011_public_showcase.sql`)**
+- `core.tenant_public`: chave publicável (`pub_<32 hex>`) e contato da vitrine
+  (whatsapp, phone, email, headline, `lead_capture_enabled`), semeada no
+  provisionamento e no backfill.
+- `core.resolve_public_tenant` (`SECURITY DEFINER`): resolve chave → tenant
+  ativo devolvendo só o id, sem vazar dado de negócio.
+
+**API pública (`app/modules/public_showcase.py`)** — sub-app isolada em
+`/public`, CORS aberto (o widget roda no domínio do cliente), rate limit em
+memória por IP (`app/core/ratelimit.py`).
+- `GET /{key}/showcase`: marca, contato e facetas de filtro.
+- `GET /{key}/properties`: só o publicado, filtros (finalidade, tipo, cidade,
+  bairro, quartos, faixa de preço, busca) e ordenação (recentes, menor/maior
+  preço, maior área); endereço no nível permitido; `whatsapp_url` pronto por
+  imóvel.
+- `GET /{key}/properties/{slug}`: detalhe por slug ou código.
+- `POST /{key}/leads`: cai no funil certo (venda/locação), com honeypot e
+  rate limit apertado.
+
+**API autenticada**: `GET/PUT /properties/settings/showcase` para a imobiliária
+ler a chave e editar o contato.
+
+**Frontend**: aba **Vitrine e API** em Configurações — chave copiável,
+endpoints, snippet do widget e o formulário de contato.
+
+### Verificação
+- 281 testes (10 do fluxo público, incluindo isolamento entre tenants,
+  honeypot e roteamento de lead por finalidade). `ruff`/`tsc`/build OK, aba
+  conferida por captura.
+
+### Próximo da vitrine
+- O `widget.js` que consome estes endpoints e desenha a grade no site do
+  cliente (o snippet já é mostrado).
+- Site pronto hospedado; feed VRSync para os portais; rotação da chave.
+
+---
+
 ## Vitrine — fundação da publicação de imóveis (2026-07-25) ✅
 
 Primeiro passo da integração do cadastro com o site da imobiliária/corretor e

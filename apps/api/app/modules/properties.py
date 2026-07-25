@@ -140,6 +140,25 @@ class WatermarkSettings(BaseModel):
     apply_on_portals: bool = False
 
 
+class ShowcaseSettings(BaseModel):
+    # public_key é somente-leitura para o app (troca por rota própria); os
+    # demais campos a imobiliária edita.
+    public_key: str | None = None
+    whatsapp: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    headline: str | None = None
+    lead_capture_enabled: bool = True
+
+
+class ShowcaseSettingsIn(BaseModel):
+    whatsapp: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    headline: str | None = None
+    lead_capture_enabled: bool = True
+
+
 class PhotoOut(BaseModel):
     id: UUID
     url: str | None
@@ -480,6 +499,63 @@ async def update_watermark_settings(
     )
     await record_audit(db, user, "tenant_branding", user.tenant_id, "update")
     return payload
+
+
+@router.get("/settings/showcase", response_model=ShowcaseSettings)
+async def get_showcase_settings(
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("imoveis", "view")),
+) -> ShowcaseSettings:
+    row = (
+        (
+            await db.execute(
+                text(
+                    "select public_key, whatsapp, phone, email, headline, lead_capture_enabled "
+                    "from core.tenant_public"
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return ShowcaseSettings(**row) if row else ShowcaseSettings()
+
+
+@router.put("/settings/showcase", response_model=ShowcaseSettings)
+async def update_showcase_settings(
+    payload: ShowcaseSettingsIn,
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("imoveis", "edit")),
+) -> ShowcaseSettings:
+    """Contato e chamada da vitrine. A chave publicável é gerada no
+    provisionamento e só aparece aqui — não é editável por esta rota."""
+    row = (
+        (
+            await db.execute(
+                text(
+                    """
+                    update core.tenant_public set
+                        whatsapp = :whatsapp, phone = :phone, email = :email,
+                        headline = :headline, lead_capture_enabled = :lead, updated_at = now()
+                    where tenant_id = :tid
+                    returning public_key, whatsapp, phone, email, headline, lead_capture_enabled
+                    """
+                ),
+                {
+                    "tid": str(user.tenant_id),
+                    "whatsapp": payload.whatsapp,
+                    "phone": payload.phone,
+                    "email": payload.email,
+                    "headline": payload.headline,
+                    "lead": payload.lead_capture_enabled,
+                },
+            )
+        )
+        .mappings()
+        .first()
+    )
+    await record_audit(db, user, "tenant_branding", user.tenant_id, "update")
+    return ShowcaseSettings(**row)
 
 
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
