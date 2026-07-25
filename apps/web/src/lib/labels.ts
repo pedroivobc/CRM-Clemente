@@ -16,13 +16,42 @@ export const PROPERTY_STATUS: Record<PropertyStatus, { label: string; color: str
 
 export const PROPERTY_KINDS: Record<string, string> = {
   casa: "Casa",
+  casa_geminada: "Casa geminada",
+  casa_condominio: "Casa em condomínio",
+  sobrado: "Sobrado",
   apartamento: "Apartamento",
+  cobertura: "Cobertura",
+  kitnet: "Kitnet",
+  studio: "Studio",
+  flat: "Flat",
+  garden: "Garden",
+  loft: "Loft",
   sala_comercial: "Sala comercial",
   loja: "Loja",
+  ponto_comercial: "Ponto comercial",
   galpao: "Galpão",
+  andar_corporativo: "Andar corporativo",
+  predio: "Prédio",
+  hotel_pousada: "Hotel / pousada",
   terreno: "Terreno",
+  lote_condominio: "Lote em condomínio",
   sitio_chacara: "Sítio / chácara",
+  fazenda: "Fazenda",
+  vaga_garagem: "Vaga de garagem",
   outro: "Outro",
+};
+
+export const ADDRESS_VISIBILITY: Record<string, { label: string; hint: string }> = {
+  completo: { label: "Endereço completo", hint: "Rua, número e complemento aparecem" },
+  rua: { label: "Só a rua", hint: "Mostra a rua, esconde o número" },
+  bairro: { label: "Só o bairro", hint: "Mostra apenas bairro, cidade e UF" },
+};
+
+export const RENTAL_WARRANTIES: Record<string, string> = {
+  caucao: "Caução",
+  fiador: "Fiador",
+  seguro_fianca: "Seguro-fiança",
+  titulo_capitalizacao: "Título de capitalização",
 };
 
 export const PURPOSES: Record<string, string> = {

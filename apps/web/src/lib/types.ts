@@ -105,24 +105,47 @@ export type PropertyStatus =
 export type Property = {
   id: string;
   code: string;
+  slug: string | null;
   kind: string;
   purpose: "venda" | "locacao" | "ambos";
+  usage_type: "residencial" | "comercial" | "ambos";
   status: PropertyStatus;
   title: string;
   description: string | null;
   address: Address;
+  address_visibility: "completo" | "rua" | "bairro";
+  public_address: Address;
   registry_number: string | null;
   iptu_code: string | null;
   features: Record<string, unknown>;
+  year_built: number | null;
+  floors: number | null;
+  unit_floor: number | null;
+  lot_area: string | null;
+  rental_warranties: string[];
   sale_price: string | null;
   rent_price: string | null;
   condo_fee: string | null;
   iptu_amount: string | null;
   tour_url: string | null;
+  is_exclusive: boolean;
+  publish_site: boolean;
+  publish_portals: boolean;
+  published_at: string | null;
+  publish_blockers: string[];
+  is_publishable: boolean;
   cover_url: string | null;
   photos: Photo[];
   owners: PropertyOwner[];
   created_at: string;
+};
+
+export type WatermarkSettings = {
+  enabled: boolean;
+  position: "bottom-right" | "bottom-left" | "top-right" | "top-left" | "center";
+  opacity: string;
+  apply_on_site: boolean;
+  apply_on_portals: boolean;
 };
 
 export type FinanceEntry = {

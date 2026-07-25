@@ -1,5 +1,64 @@
 # PROGRESS
 
+## Vitrine — fundação da publicação de imóveis (2026-07-25) ✅
+
+Primeiro passo da integração do cadastro com o site da imobiliária/corretor e
+com os portais. Antecedido por pesquisa de campo nos sites de JF
+(`docs/PESQUISA-SITES-IMOBILIARIAS-JF.md`), que apontou os dois bloqueios
+reais: não havia controle de publicação nem política de exibição de endereço.
+
+### Entregue
+
+**Banco (`0010_publishing.sql`)**
+- Flags de publicação por imóvel (`publish_site`, `publish_portals`,
+  `is_exclusive`, `published_at`), independentes do status operacional.
+- `address_visibility` (completo / rua / bairro), espelhando o displayAddress
+  do VRSync — o proprietário decide até onde o endereço aparece.
+- Campos do VRSync: `usage_type`, `year_built`, `floors`, `unit_floor`,
+  `lot_area`, `rental_warranties` (com gatilho de validação), `slug`.
+- Vocabulário de tipos ampliado de 8 para 24, cobrindo o que o mercado usa.
+- `portal_publications`: rastreio por canal (ZAP/VivaReal/OLX/site), com erro
+  e data de sincronização — para saber por que um anúncio sumiu do portal.
+- `watermark_settings`: marca d'água configurável por tenant **e por canal**
+  (marcar no site, foto limpa no portal), semeada no provisionamento.
+
+**Domínio (`app/domain/publishing.py`)** — funções puras
+- `build_slug` no padrão SEO dos sites de JF (tipo-quartos-bairro-cidade-uf-
+  transação-código), com o código garantindo unicidade.
+- `public_address` aplica a política de exibição; cidade, bairro e UF nunca
+  são escondidos (o portal os exige).
+- `publication_blockers`: o que falta para o imóvel ir ao ar, cruzando
+  exigência comercial (foto, preço) com a do portal (título, descrição,
+  bairro) e o bom senso (imóvel vendido não fica anunciado).
+- `whatsapp_link` no padrão capturado na pesquisa (código + URL na mensagem).
+- Mapa `kind → PropertyType` do VRSync.
+
+**API** — o cadastro ganhou os campos novos; publicar (`POST
+/properties/{id}/publish`) é **recusado com a lista do que falta** quando há
+impedimento, e despublicar nunca é barrado. A ficha devolve `slug`,
+`public_address`, `publish_blockers` e `is_publishable`. Configuração de marca
+d'água em `GET/PUT /properties/settings/watermark`.
+
+**Frontend** — painel de Publicação na ficha do imóvel: interruptores de site
+e portais (travados enquanto houver pendência, com a lista visível), seleção
+do nível de endereço com prévia do que o visitante vê, exclusividade e o
+caminho público do anúncio.
+
+### Verificação
+- 271 testes (20 do domínio da vitrine, 13 do fluxo de publicação, mais os das
+  fases anteriores). `ruff` limpo, `tsc` e build OK, painel conferido por
+  captura nos estados no ar, bloqueado e endereço liberado.
+
+### Próximos passos da vitrine (não entregues aqui)
+- Endpoint público read-only por tenant + widget de embutir (a peça que ganha
+  do Robust CRM, que tranca isso atrás do suporte).
+- Geração do site pronto (subdomínio/domínio próprio) e do feed VRSync.
+- Aplicar `watermark_settings` no worker (hoje a marca usa opacidade fixa).
+- Confirmar com o Canal Pro a regra de marca d'água e as exigências do CRECI
+  antes de publicar de fato.
+
+---
+
 ## Fase 4 — Operação (2026-07-25) ✅
 
 Chaves, vistorias e chamados de manutenção: a parte do dia a dia que hoje vive

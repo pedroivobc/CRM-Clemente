@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ImagePlus, Star, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  Globe,
+  ImagePlus,
+  Megaphone,
+  Star,
+  Trash2,
+} from "lucide-react";
 import * as React from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -11,12 +20,13 @@ import {
   CardHeader,
   CodeTag,
   ErrorNote,
+  Field,
   Select,
   Spinner,
 } from "@/components/ui";
 import { api } from "@/lib/api";
-import { money, shortAddress } from "@/lib/format";
-import { PROPERTY_KINDS, PROPERTY_STATUS, PURPOSES } from "@/lib/labels";
+import { date, money, shortAddress } from "@/lib/format";
+import { ADDRESS_VISIBILITY, PROPERTY_KINDS, PROPERTY_STATUS, PURPOSES } from "@/lib/labels";
 import type { Photo, Property, PropertyStatus } from "@/lib/types";
 
 export function ImovelDetalhe() {
@@ -116,6 +126,8 @@ export function ImovelDetalhe() {
         </div>
 
         <div className="space-y-5">
+          <PublishPanel property={property} canEdit={can("imoveis", "edit")} />
+
           <Card>
             <CardHeader title="Valores" />
             <dl className="divide-y divide-line-soft">
@@ -172,6 +184,173 @@ export function ImovelDetalhe() {
         </div>
       </div>
     </>
+  );
+}
+
+function PublishPanel({ property, canEdit }: { property: Property; canEdit: boolean }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = React.useState<string | null>(null);
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["property", property.id] });
+    queryClient.invalidateQueries({ queryKey: ["properties"] });
+  };
+
+  const publish = useMutation({
+    mutationFn: (next: { publish_site: boolean; publish_portals: boolean }) =>
+      api.post<Property>(`/properties/${property.id}/publish`, next),
+    onSuccess: () => {
+      setError(null);
+      invalidate();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const patch = useMutation({
+    mutationFn: (body: Partial<Property>) => api.patch<Property>(`/properties/${property.id}`, body),
+    onSuccess: invalidate,
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const live = property.publish_site || property.publish_portals;
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Megaphone className="size-4 text-muted" />
+            Publicação
+          </span>
+        }
+        hint={
+          live && property.published_at ? `No ar desde ${date(property.published_at)}` : undefined
+        }
+      />
+
+      <div className="space-y-4 px-5 py-4">
+        {!property.is_publishable ? (
+          <div className="rounded-md border border-caution/25 bg-caution-soft px-3 py-2.5">
+            <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-caution">
+              <AlertTriangle className="size-3.5" />
+              Falta para poder publicar
+            </p>
+            <ul className="mt-1.5 space-y-1 text-[12.5px] text-caution">
+              {property.publish_blockers.map((b) => (
+                <li key={b} className="flex gap-1.5">
+                  <span aria-hidden>•</span>
+                  {b}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <ChannelToggle
+          icon={<Globe className="size-4" />}
+          label="Site da imobiliária"
+          hint="Vitrine e API pública"
+          checked={property.publish_site}
+          disabled={!canEdit || (!property.is_publishable && !property.publish_site)}
+          onChange={(v) =>
+            publish.mutate({ publish_site: v, publish_portals: property.publish_portals })
+          }
+        />
+        <ChannelToggle
+          icon={<Megaphone className="size-4" />}
+          label="Portais"
+          hint="ZAP, VivaReal e OLX"
+          checked={property.publish_portals}
+          disabled={!canEdit || (!property.is_publishable && !property.publish_portals)}
+          onChange={(v) =>
+            publish.mutate({ publish_site: property.publish_site, publish_portals: v })
+          }
+        />
+
+        <div className="border-t border-line-soft pt-4">
+          <Field label="Endereço na vitrine">
+            <Select
+              value={property.address_visibility}
+              disabled={!canEdit}
+              onChange={(e) => patch.mutate({ address_visibility: e.target.value as never })}
+            >
+              {Object.entries(ADDRESS_VISIBILITY).map(([value, { label }]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <p className="mt-1.5 text-[12px] text-muted">
+            O visitante vê: <span className="text-ink-soft">{shortAddress(property.public_address)}</span>
+          </p>
+        </div>
+
+        <label className="flex items-center gap-2.5 text-[13px]">
+          <input
+            type="checkbox"
+            checked={property.is_exclusive}
+            disabled={!canEdit}
+            onChange={(e) => patch.mutate({ is_exclusive: e.target.checked })}
+            className="size-4 accent-[var(--brand-primary)]"
+          />
+          <span className="text-ink">Imóvel com exclusividade</span>
+        </label>
+
+        {property.slug && live ? (
+          <p className="truncate font-mono text-[11.5px] text-muted">/imovel/{property.slug}</p>
+        ) : null}
+
+        {error ? <ErrorNote>{error}</ErrorNote> : null}
+      </div>
+    </Card>
+  );
+}
+
+function ChannelToggle({
+  icon,
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  hint: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2.5">
+        <span className={checked ? "text-[var(--brand-primary)]" : "text-muted"}>{icon}</span>
+        <span>
+          <span className="block text-[13.5px] text-ink">{label}</span>
+          <span className="block text-[11.5px] text-muted">{hint}</span>
+        </span>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${
+          checked ? "bg-[var(--brand-primary)]" : "bg-sunken"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 grid size-5 place-items-center rounded-full bg-surface shadow transition-transform ${
+            checked ? "translate-x-[22px]" : "translate-x-0.5"
+          }`}
+        >
+          {checked ? <Check className="size-3 text-[var(--brand-primary)]" /> : null}
+        </span>
+      </button>
+    </div>
   );
 }
 

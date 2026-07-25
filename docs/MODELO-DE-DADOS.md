@@ -153,6 +153,16 @@ erDiagram
 
 ## Schema `properties` — imóveis, fotos, proprietários
 
+> Publicação (migration 0010): `properties.properties` ganhou `slug`,
+> `publish_site`/`publish_portals`/`is_exclusive`/`published_at`,
+> `address_visibility` (completo/rua/bairro, = displayAddress do VRSync) e os
+> campos de anúncio `usage_type`, `year_built`, `floors`, `unit_floor`,
+> `lot_area`, `rental_warranties`. Somaram-se `properties.portal_publications`
+> (rastreio por canal ZAP/VivaReal/OLX/site) e `properties.watermark_settings`
+> (marca d'água por tenant e por canal). O controle de publicação é
+> independente do `status` operacional.
+
+
 ```mermaid
 erDiagram
     properties ||--o{ property_photos : "original + marcada"

@@ -14,6 +14,12 @@ from sqlalchemy import text
 from app.core.audit import record_audit
 from app.core.deps import DbDep, require_permission
 from app.core.security import CurrentUser
+from app.domain.publishing import (
+    RENTAL_WARRANTIES,
+    build_slug,
+    public_address,
+    publication_blockers,
+)
 from app.modules.common import Address, Page
 from app.services.storage import BUCKET_PROPERTY_PHOTOS, get_storage, tenant_path
 from app.workers.queue import enqueue
@@ -29,6 +35,35 @@ PROPERTY_STATUSES = {
     "em_manutencao",
     "inativo",
 }
+# Vocabulário de tipos alinhado ao constraint da migration 0010; o mapa para o
+# PropertyType do VRSync vive em app.domain.publishing.
+PROPERTY_KINDS = (
+    "casa",
+    "casa_geminada",
+    "casa_condominio",
+    "sobrado",
+    "apartamento",
+    "cobertura",
+    "kitnet",
+    "studio",
+    "flat",
+    "garden",
+    "loft",
+    "sala_comercial",
+    "loja",
+    "ponto_comercial",
+    "galpao",
+    "andar_corporativo",
+    "predio",
+    "hotel_pousada",
+    "terreno",
+    "lote_condominio",
+    "sitio_chacara",
+    "fazenda",
+    "vaga_garagem",
+    "outro",
+)
+ADDRESS_VISIBILITIES = {"completo", "rua", "bairro"}
 MAX_PHOTO_BYTES = 15 * 1024 * 1024
 ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
@@ -42,36 +77,67 @@ class OwnerIn(BaseModel):
 class PropertyIn(BaseModel):
     kind: str
     purpose: str = Field(pattern="^(venda|locacao|ambos)$")
+    usage_type: str = Field("residencial", pattern="^(residencial|comercial|ambos)$")
     title: str = Field(min_length=1, max_length=200)
     description: str | None = None
     address: Address = Field(default_factory=Address)
+    address_visibility: str = Field("bairro", pattern="^(completo|rua|bairro)$")
     registry_number: str | None = None
     iptu_code: str | None = None
     features: dict = Field(default_factory=dict)
+    year_built: int | None = None
+    floors: int | None = None
+    unit_floor: int | None = None
+    lot_area: Decimal | None = None
+    rental_warranties: list[str] = Field(default_factory=list)
     sale_price: Decimal | None = None
     rent_price: Decimal | None = None
     condo_fee: Decimal | None = None
     iptu_amount: Decimal | None = None
     tour_url: str | None = None
+    is_exclusive: bool = False
     owners: list[OwnerIn] = Field(default_factory=list)
 
 
 class PropertyUpdate(BaseModel):
     kind: str | None = None
     purpose: str | None = None
+    usage_type: str | None = Field(None, pattern="^(residencial|comercial|ambos)$")
     status: str | None = None
     title: str | None = None
     description: str | None = None
     address: Address | None = None
+    address_visibility: str | None = Field(None, pattern="^(completo|rua|bairro)$")
     registry_number: str | None = None
     iptu_code: str | None = None
     features: dict | None = None
+    year_built: int | None = None
+    floors: int | None = None
+    unit_floor: int | None = None
+    lot_area: Decimal | None = None
+    rental_warranties: list[str] | None = None
     sale_price: Decimal | None = None
     rent_price: Decimal | None = None
     condo_fee: Decimal | None = None
     iptu_amount: Decimal | None = None
     tour_url: str | None = None
+    is_exclusive: bool | None = None
     owners: list[OwnerIn] | None = None
+
+
+class PublishIn(BaseModel):
+    publish_site: bool
+    publish_portals: bool
+
+
+class WatermarkSettings(BaseModel):
+    enabled: bool = True
+    position: str = Field(
+        "bottom-right", pattern="^(bottom-right|bottom-left|top-right|top-left|center)$"
+    )
+    opacity: Decimal = Field(Decimal("0.65"), ge=0, le=1)
+    apply_on_site: bool = True
+    apply_on_portals: bool = False
 
 
 class PhotoOut(BaseModel):
@@ -92,20 +158,38 @@ class OwnerOut(BaseModel):
 class PropertyOut(BaseModel):
     id: UUID
     code: str
+    slug: str | None
     kind: str
     purpose: str
+    usage_type: str
     status: str
     title: str
     description: str | None
     address: dict
+    address_visibility: str
+    # Como o endereço aparece na vitrine, dado o nível escolhido — para a
+    # imobiliária conferir antes de publicar.
+    public_address: dict
     registry_number: str | None
     iptu_code: str | None
     features: dict
+    year_built: int | None
+    floors: int | None
+    unit_floor: int | None
+    lot_area: Decimal | None
+    rental_warranties: list[str]
     sale_price: Decimal | None
     rent_price: Decimal | None
     condo_fee: Decimal | None
     iptu_amount: Decimal | None
     tour_url: str | None
+    is_exclusive: bool
+    publish_site: bool
+    publish_portals: bool
+    published_at: datetime | None
+    # Calculados na leitura da ficha (não em listagem, por custo).
+    publish_blockers: list[str] = Field(default_factory=list)
+    is_publishable: bool = True
     cover_url: str | None = None
     photos: list[PhotoOut] = Field(default_factory=list)
     owners: list[OwnerOut] = Field(default_factory=list)
@@ -170,44 +254,70 @@ async def create_property(
     db: DbDep,
     user: CurrentUser = Depends(require_permission("imoveis", "create")),
 ) -> PropertyOut:
+    if payload.kind not in PROPERTY_KINDS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo de imóvel inválido")
+    _validate_warranties(payload.rental_warranties)
+
     code = (
         await db.execute(
             text("select properties.next_property_code(:tid)"), {"tid": str(user.tenant_id)}
         )
     ).scalar_one()
 
+    address = payload.address.model_dump(exclude_none=True)
+    slug = build_slug(
+        kind=payload.kind,
+        purpose=payload.purpose,
+        code=code,
+        bedrooms=_int_or_none(payload.features.get("quartos")),
+        neighborhood=address.get("bairro"),
+        city=address.get("cidade"),
+        uf=address.get("uf"),
+    )
+
     property_id = (
         await db.execute(
             text(
                 """
                 insert into properties.properties
-                    (tenant_id, code, kind, purpose, title, description, address,
-                     registry_number, iptu_code, features, sale_price, rent_price,
-                     condo_fee, iptu_amount, tour_url)
+                    (tenant_id, code, slug, kind, purpose, usage_type, title, description,
+                     address, address_visibility, registry_number, iptu_code, features,
+                     year_built, floors, unit_floor, lot_area, rental_warranties,
+                     sale_price, rent_price, condo_fee, iptu_amount, tour_url, is_exclusive)
                 values
-                    (:tid, :code, :kind, :purpose, :title, :description,
-                     cast(:address as jsonb), :registry_number, :iptu_code,
-                     cast(:features as jsonb), :sale_price, :rent_price,
-                     :condo_fee, :iptu_amount, :tour_url)
+                    (:tid, :code, :slug, :kind, :purpose, :usage_type, :title, :description,
+                     cast(:address as jsonb), :address_visibility, :registry_number, :iptu_code,
+                     cast(:features as jsonb), :year_built, :floors, :unit_floor, :lot_area,
+                     :rental_warranties, :sale_price, :rent_price, :condo_fee, :iptu_amount,
+                     :tour_url, :is_exclusive)
                 returning id
                 """
             ),
             {
                 "tid": str(user.tenant_id),
                 "code": code,
+                "slug": slug or None,
                 "kind": payload.kind,
                 "purpose": payload.purpose,
+                "usage_type": payload.usage_type,
                 "title": payload.title,
                 "description": payload.description,
-                "address": json.dumps(payload.address.model_dump(exclude_none=True)),
+                "address": json.dumps(address),
+                "address_visibility": payload.address_visibility,
                 "registry_number": payload.registry_number,
                 "iptu_code": payload.iptu_code,
                 "features": json.dumps(payload.features),
+                "year_built": payload.year_built,
+                "floors": payload.floors,
+                "unit_floor": payload.unit_floor,
+                "lot_area": payload.lot_area,
+                "rental_warranties": payload.rental_warranties,
                 "sale_price": payload.sale_price,
                 "rent_price": payload.rent_price,
                 "condo_fee": payload.condo_fee,
                 "iptu_amount": payload.iptu_amount,
                 "tour_url": payload.tour_url,
+                "is_exclusive": payload.is_exclusive,
             },
         )
     ).scalar_one()
@@ -238,6 +348,10 @@ async def update_property(
     fields = payload.model_dump(exclude_unset=True, exclude={"owners", "address", "features"})
     if "status" in fields and fields["status"] not in PROPERTY_STATUSES:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Situação de imóvel inválida")
+    if "kind" in fields and fields["kind"] not in PROPERTY_KINDS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Tipo de imóvel inválido")
+    if payload.rental_warranties is not None:
+        _validate_warranties(payload.rental_warranties)
     if payload.address is not None:
         fields["address"] = json.dumps(payload.address.model_dump(exclude_none=True))
     if payload.features is not None:
@@ -253,6 +367,10 @@ async def update_property(
             {**fields, "pid": str(property_id)},
         )
 
+    # O slug carrega tipo, bairro e cidade; se algum deles mudou, ele acompanha.
+    if fields.keys() & {"kind", "purpose", "address", "features"}:
+        await _refresh_slug(db, property_id)
+
     if payload.owners is not None:
         await _set_owners(db, user.tenant_id, property_id, payload.owners)
 
@@ -267,6 +385,101 @@ async def update_property(
         after=after.model_dump(mode="json"),
     )
     return after
+
+
+@router.post("/{property_id}/publish", response_model=PropertyOut)
+async def set_publication(
+    property_id: UUID,
+    payload: PublishIn,
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("imoveis", "edit")),
+) -> PropertyOut:
+    """Liga ou desliga a publicação no site e nos portais.
+
+    Publicar exige o imóvel pronto: se faltar foto, preço, título, descrição ou
+    localização, a chamada é recusada com a lista do que falta. Despublicar
+    (as duas flags falsas) nunca é barrado — é sempre possível tirar do ar.
+    """
+    current = await _get_property(db, property_id)
+
+    if payload.publish_site or payload.publish_portals:
+        blockers = _blockers_for(current, await _photo_count(db, property_id))
+        if blockers:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Não é possível publicar: " + " ".join(blockers),
+            )
+
+    going_live = (payload.publish_site or payload.publish_portals) and not (
+        current.publish_site or current.publish_portals
+    )
+    await db.execute(
+        text(
+            "update properties.properties set publish_site = :site, publish_portals = :portals, "
+            "published_at = case when :first_time then now() else published_at end "
+            "where id = :pid"
+        ),
+        {
+            "site": payload.publish_site,
+            "portals": payload.publish_portals,
+            "first_time": going_live,
+            "pid": str(property_id),
+        },
+    )
+    await record_audit(db, user, "property", property_id, "update")
+    return await _get_property(db, property_id)
+
+
+@router.get("/settings/watermark", response_model=WatermarkSettings)
+async def get_watermark_settings(
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("imoveis", "view")),
+) -> WatermarkSettings:
+    row = (
+        (
+            await db.execute(
+                text(
+                    "select enabled, position, opacity, apply_on_site, apply_on_portals "
+                    "from properties.watermark_settings where tenant_id = :tid"
+                ),
+                {"tid": str(user.tenant_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return WatermarkSettings(**row) if row else WatermarkSettings()
+
+
+@router.put("/settings/watermark", response_model=WatermarkSettings)
+async def update_watermark_settings(
+    payload: WatermarkSettings,
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("imoveis", "edit")),
+) -> WatermarkSettings:
+    await db.execute(
+        text(
+            """
+            insert into properties.watermark_settings
+                (tenant_id, enabled, position, opacity, apply_on_site, apply_on_portals)
+            values (:tid, :enabled, :position, :opacity, :apply_on_site, :apply_on_portals)
+            on conflict (tenant_id) do update set
+                enabled = excluded.enabled, position = excluded.position,
+                opacity = excluded.opacity, apply_on_site = excluded.apply_on_site,
+                apply_on_portals = excluded.apply_on_portals, updated_at = now()
+            """
+        ),
+        {
+            "tid": str(user.tenant_id),
+            "enabled": payload.enabled,
+            "position": payload.position,
+            "opacity": payload.opacity,
+            "apply_on_site": payload.apply_on_site,
+            "apply_on_portals": payload.apply_on_portals,
+        },
+    )
+    await record_audit(db, user, "tenant_branding", user.tenant_id, "update")
+    return payload
 
 
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
@@ -541,23 +754,42 @@ async def _to_property_out(db, row, *, with_details: bool = True) -> PropertyOut
         )
     ).scalar()
 
+    blockers: list[str] = []
+    if with_details:
+        blockers = _blockers_from_row(row, len(photos))
+
     return PropertyOut(
         id=row["id"],
         code=row["code"],
+        slug=row["slug"],
         kind=row["kind"],
         purpose=row["purpose"],
+        usage_type=row["usage_type"],
         status=row["status"],
         title=row["title"],
         description=row["description"],
         address=row["address"] or {},
+        address_visibility=row["address_visibility"],
+        public_address=public_address(row["address"] or {}, row["address_visibility"]),
         registry_number=row["registry_number"],
         iptu_code=row["iptu_code"],
         features=row["features"] or {},
+        year_built=row["year_built"],
+        floors=row["floors"],
+        unit_floor=row["unit_floor"],
+        lot_area=row["lot_area"],
+        rental_warranties=list(row["rental_warranties"] or []),
         sale_price=row["sale_price"],
         rent_price=row["rent_price"],
         condo_fee=row["condo_fee"],
         iptu_amount=row["iptu_amount"],
         tour_url=row["tour_url"],
+        is_exclusive=row["is_exclusive"],
+        publish_site=row["publish_site"],
+        publish_portals=row["publish_portals"],
+        published_at=row["published_at"],
+        publish_blockers=blockers,
+        is_publishable=not blockers,
         cover_url=storage.public_url(BUCKET_PROPERTY_PHOTOS, cover) if cover else None,
         photos=photos,
         owners=owners,
@@ -579,3 +811,88 @@ async def _get_property(db, property_id: UUID) -> PropertyOut:
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Imóvel não encontrado")
     return await _to_property_out(db, row)
+
+
+def _validate_warranties(warranties: list[str]) -> None:
+    invalid = set(warranties) - set(RENTAL_WARRANTIES)
+    if invalid:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Garantia de locação inválida: {', '.join(sorted(invalid))}",
+        )
+
+
+def _int_or_none(value: object) -> int | None:
+    try:
+        return int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _blockers_from_row(row, photo_count: int) -> list[str]:
+    """Impedimentos de publicação a partir da linha crua do banco."""
+    return publication_blockers(
+        purpose=row["purpose"],
+        status=row["status"],
+        title=row["title"],
+        description=row["description"],
+        sale_price=row["sale_price"],
+        rent_price=row["rent_price"],
+        photo_count=photo_count,
+        address=row["address"] or {},
+    )
+
+
+def _blockers_for(prop: PropertyOut, photo_count: int) -> list[str]:
+    return publication_blockers(
+        purpose=prop.purpose,
+        status=prop.status,
+        title=prop.title,
+        description=prop.description,
+        sale_price=prop.sale_price,
+        rent_price=prop.rent_price,
+        photo_count=photo_count,
+        address=prop.address,
+    )
+
+
+async def _photo_count(db, property_id: UUID) -> int:
+    return (
+        await db.execute(
+            text("select count(*) from properties.property_photos where property_id = :pid"),
+            {"pid": str(property_id)},
+        )
+    ).scalar_one()
+
+
+async def _refresh_slug(db, property_id: UUID) -> None:
+    """Recalcula o slug a partir do estado atual do imóvel."""
+    row = (
+        (
+            await db.execute(
+                text(
+                    "select code, kind, purpose, features, address "
+                    "from properties.properties where id = :pid"
+                ),
+                {"pid": str(property_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        return
+    address = row["address"] or {}
+    slug = build_slug(
+        kind=row["kind"],
+        purpose=row["purpose"],
+        code=row["code"],
+        bedrooms=_int_or_none((row["features"] or {}).get("quartos")),
+        neighborhood=address.get("bairro"),
+        city=address.get("cidade"),
+        uf=address.get("uf"),
+    )
+    await db.execute(
+        text("update properties.properties set slug = :slug where id = :pid"),
+        {"slug": slug or None, "pid": str(property_id)},
+    )
