@@ -215,3 +215,24 @@ async def test_vitrine_de_um_tenant_nao_mostra_imovel_de_outro(client_factory):
     bairros = [c["address"].get("bairro") for c in lista["items"]]
     assert "Bairro do A" in bairros
     assert "Bairro do B" not in bairros
+
+
+# ── Resolução por host ───────────────────────────────────────────────────────
+async def test_by_host_resolve_por_subdominio(api, pub):
+    key = await _public_key(api)
+    resp = await pub.get("/public/by-host?host=imob-a")
+    assert resp.status_code == 200
+    assert resp.json()["public_key"] == key
+
+
+async def test_by_host_resolve_pelo_host_completo(api, pub):
+    key = await _public_key(api)
+    # imob-a é o subdomínio provisionado no conftest.
+    resp = await pub.get("/public/by-host?host=imob-a.sistema.com.br")
+    assert resp.status_code == 200
+    assert resp.json()["public_key"] == key
+
+
+async def test_by_host_desconhecido_da_404(pub):
+    resp = await pub.get("/public/by-host?host=nao-existe.com.br")
+    assert resp.status_code == 404

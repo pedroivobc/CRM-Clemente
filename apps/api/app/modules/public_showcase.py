@@ -49,6 +49,25 @@ async def public_tenant_id(key: str) -> UUID:
     return tenant_id
 
 
+@router.get("/by-host", response_model=dict, dependencies=[Depends(public_read_rate_limit)])
+async def resolve_by_host(host: str) -> dict:
+    """Devolve a chave pública a partir do host (subdomínio ou domínio próprio).
+
+    É o primeiro passo do site pronto: ele sobe em `aurora.sistema.com.br` ou
+    `www.aurora.com.br`, pergunta aqui de quem é, e daí segue usando a chave
+    para todo o resto.
+    """
+    async with platform_connection() as conn:
+        key = (
+            await conn.execute(
+                text("select core.resolve_public_key_by_host(:h)"), {"h": host}
+            )
+        ).scalar()
+    if key is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Vitrine não encontrada para este host")
+    return {"public_key": key}
+
+
 async def public_conn(
     tenant_id: Annotated[UUID, Depends(public_tenant_id)],
 ) -> AsyncIterator[AsyncConnection]:

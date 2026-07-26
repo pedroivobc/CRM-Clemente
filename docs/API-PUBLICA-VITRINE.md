@@ -86,9 +86,37 @@ de `showcase.color_primary`. Detalhe abre em modal com galeria, botão de
 WhatsApp já com o código do imóvel, e formulário de lead com honeypot e
 roteamento por finalidade. Demo em `/widget-demo.html`.
 
+## Site pronto (`apps/site`)
+
+SPA React dedicada, que consome a mesma API pública, para a imobiliária que
+não tem site nenhum ou quer trocar o atual. Vive num subdomínio do sistema
+(`aurora.sistema.com.br`) ou em domínio próprio (`www.aurora.com.br`).
+
+- Descobre a própria vitrine pelo host: chama `GET /public/by-host?host=...`
+  no boot; sem host mapeado (dev local), aceita `VITE_PUBLIC_KEY` no build.
+- Rotas: `/` (hero + destaques), `/imoveis` (grade com filtros e ordenação),
+  `/imoveis/:slug` (galeria, ficha e formulário de contato lateral),
+  `/contato`. Sem autenticação, sem dependência do painel administrativo.
+- Cor primária injetada como variável CSS a partir de `/showcase` — o mesmo
+  build serve todas as imobiliárias.
+- Bundle: ~200 KB (65 KB gzip).
+
+## Resolução por host
+
+Função `core.resolve_public_key_by_host(text) → text` (`SECURITY DEFINER`)
+aceita três formas do `Host`:
+
+1. `custom_domain` exato (`www.aurora.com.br`);
+2. `subdomain` nu (`aurora`);
+3. primeiro rótulo do host (`aurora.sistema.com.br`).
+
+Devolve `NULL` se nada bater; o endpoint `/public/by-host` retorna 404 e o
+site mostra "Vitrine indisponível".
+
 ## O que ainda falta (roadmap da vitrine)
 
-- Site pronto hospedado (subdomínio ou domínio próprio) — a próxima saída.
 - Feed VRSync gerado destes mesmos dados para ZAP/VivaReal/OLX.
 - Endpoint para rotacionar a `public_key`.
-- Testes automáticos do widget (Playwright do jeito que fizemos as capturas).
+- Aplicar `watermark_settings` no worker (hoje a marca usa opacidade fixa).
+- SEO: hoje o site é SPA; para indexação plena falta pré-renderização.
+- Testes automáticos do widget e do site (Playwright).

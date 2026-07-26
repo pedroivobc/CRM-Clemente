@@ -1,5 +1,47 @@
 # PROGRESS
 
+## Vitrine — site pronto (`apps/site`) (2026-07-25) ✅
+
+Terceira das três saídas do cadastro: um site inteiro para a imobiliária que
+não tem site nenhum ou quer trocar o atual. Sobe num subdomínio do sistema
+(`aurora.sistema.com.br`) ou em domínio próprio (`www.aurora.com.br`),
+descobre a própria vitrine pelo host e consome só a API pública. O mesmo
+build serve todas as imobiliárias.
+
+### Entregue
+
+**Banco (`0012_resolve_by_host.sql`)** — `core.resolve_public_key_by_host`
+(SECURITY DEFINER) aceita subdomínio nu, host completo ou custom_domain e
+devolve a chave pública. Só tenants ativos.
+
+**API pública** — endpoint `GET /public/by-host?host=...` na sub-app pública,
+protegido pelo mesmo rate limit da leitura.
+
+**Site (`apps/site`)** — SPA React dedicada (200 KB, 65 KB gzip), sem
+dependência do painel administrativo:
+- Home com hero (chamada do tenant + busca rápida) e grade de destaques.
+- `/imoveis` — grade com filtros (finalidade, tipo, bairro, teto de preço) e
+  ordenação; paginação "carregar mais"; querystring sincronizada.
+- `/imoveis/:slug` — galeria, chips com specs, descrição, ficha em duas
+  colunas, sidebar sticky com preço, WhatsApp (deep link com o código do
+  imóvel), telefone clicável e formulário de lead com honeypot.
+- `/contato` — telefone, WhatsApp, e-mail e mensagem geral.
+- Cor primária do tenant injetada como variável CSS a partir de `/showcase`.
+
+### Verificação
+- 3 testes do endpoint `/by-host` (subdomínio nu, host completo, host
+  desconhecido → 404), somando 284 no total. Build limpo.
+- Home, listagem, detalhe, contato e mobile conferidos por captura, sem
+  erros de console.
+
+### Próximo da vitrine
+- Feed VRSync para ZAP/VivaReal/OLX.
+- Rotação da chave pública.
+- Aplicar `watermark_settings` no worker (hoje a opacidade é fixa).
+- Pré-renderização/SSR para SEO pleno.
+
+---
+
 ## Vitrine — widget embutível (2026-07-25) ✅
 
 Script `widget.js` que a imobiliária cola no HTML do site (WordPress, Wix ou
