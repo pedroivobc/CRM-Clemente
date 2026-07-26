@@ -1,5 +1,54 @@
 # PROGRESS
 
+## Vitrine — melhorias em série (2026-07-26) ✅
+
+Cinco entregas empacotadas depois do briefing do Pedro Ivo. Cada etapa
+comitada em separado para facilitar reversão.
+
+**Etapa 1 — Campos tipados.** `area_util`, `bedrooms`, `suites`, `bathrooms`,
+`parking_spots`, `pet_allowed`, `republic_allowed`, `has_leisure_area`
+promovidos de `features` (jsonb) para colunas. Filtros SQL diretos na vitrine
+pública e nos portais. Backfill de tudo que já estava no jsonb. Impedimentos
+de publicação passaram a exigir área útil, quartos (exceto para tipologias
+não-residenciais como terreno) e IPTU (zero conta como isento).
+
+**Etapa 2 — Marca d'água sutil.** Padrão baixou de 0.65 para 0.35, logo caiu
+para 15% da largura da foto e margem para 2%. O worker lê `watermark_settings`
+por tenant (opacidade, posição, ligado/desligado, aplicar em site/portal). Ao
+editar as preferências, reprocessa toda a carteira do tenant.
+
+**Etapa 3 — Vídeo do imóvel.** Coluna `video_url` (YouTube ou Vimeo). Helper
+`video_embed_url` do domínio deriva o formato de embed; site pronto e widget
+renderizam num iframe 16:9 abaixo da galeria. Admin cadastra via URL.
+
+**Etapa 4 — Legenda para Instagram e Facebook.** Gerador determinístico em
+`app/domain/social.py`: headline (tipo/quartos/bairro/finalidade), preço em
+BRL, descrição condensada, quadro de specs, diferenciais (pet, república,
+lazer), CTA com WhatsApp e URL, hashtags derivadas de bairro/cidade/UF/tipo.
+Instagram recebe a lista completa (limite prático 30, 2.200 chars); Facebook
+fica com 5 e 4.000 chars. Endpoint `GET /properties/{id}/caption?platform=` e
+botão "Copiar legenda" na ficha administrativa.
+
+**Etapa 5 — Feeds VRSync e Chaves na Mão.** `app/domain/feeds.py` produz XML
+pronto para ZAP/VivaReal/OLX (via VRSync) e para Chaves na Mão. Endpoints
+públicos `/public/{key}/feed/vrsync.xml` e `/feed/chavesnamao.xml` só listam
+imóveis com `publish_portals`, respeitando `address_visibility` (cidade,
+bairro e UF nunca somem; rua e número dependem da política do proprietário).
+Fotos vêm marcadas ou limpas conforme `watermark_settings.apply_on_portals`.
+
+### Verificação
+Suite total: **353 passes** (307 antes + 15 do social + 14 dos feeds
+puros + 2 dos feeds via HTTP + 15 novos). Ruff limpo. Build do painel e do
+site pronto sem erros.
+
+### Ainda em aberto
+- UI para editar `watermark_settings` (hoje só via API).
+- Painel para acompanhar `portal_publications` (feed é read-only; o portal
+  ingesta e responde).
+- Botão "Copiar" que também abra o Instagram/Facebook nativos (deeplink).
+
+---
+
 ## Vitrine — site pronto (`apps/site`) (2026-07-25) ✅
 
 Terceira das três saídas do cadastro: um site inteiro para a imobiliária que

@@ -239,3 +239,86 @@ async def test_by_host_resolve_pelo_host_completo(api, pub):
 async def test_by_host_desconhecido_da_404(pub):
     resp = await pub.get("/public/by-host?host=nao-existe.com.br")
     assert resp.status_code == 404
+
+
+# ── Feeds para portais ───────────────────────────────────────────────────────
+async def test_feed_vrsync_traz_apenas_imoveis_com_publish_portals(api, pub):
+    from xml.etree import ElementTree as ET
+
+    # Imóvel só no site — não deve aparecer no feed do portal.
+    await _publish(api, price="180000.00")
+    # Um imóvel também nos portais.
+    im_portal = (
+        await api.post(
+            "/api/v1/properties",
+            json={
+                "kind": "apartamento",
+                "purpose": "venda",
+                "title": "Cobertura 3 quartos com vista da serra em São Pedro",
+                "description": DESCRICAO,
+                "sale_price": "890000.00",
+                "iptu_amount": "2100.00",
+                "area_util": "140.00",
+                "bedrooms": 3,
+                "parking_spots": 2,
+                "address": {"bairro": "São Pedro", "cidade": "Juiz de Fora", "uf": "MG"},
+            },
+        )
+    ).json()
+    await api.post(
+        f"/api/v1/properties/{im_portal['id']}/photos",
+        files={"file": ("frente.jpg", _jpeg(), "image/jpeg")},
+    )
+    await api.post(
+        f"/api/v1/properties/{im_portal['id']}/publish",
+        json={"publish_site": True, "publish_portals": True},
+    )
+
+    key = await _public_key(api)
+    resp = await pub.get(f"/public/{key}/feed/vrsync.xml")
+    assert resp.status_code == 200
+    assert "xml" in resp.headers["content-type"]
+
+    root = ET.fromstring(resp.content)
+    ns = {"v": "http://www.vivareal.com/schemas/1.0/VRSync"}
+    listings = root.findall("v:Listings/v:Listing", ns)
+    assert len(listings) == 1
+    codigo = listings[0].find("v:ListingID", ns).text
+    assert codigo == im_portal["code"]
+
+
+async def test_feed_chavesnamao_devolve_xml(api, pub):
+    from xml.etree import ElementTree as ET
+
+    imovel = (
+        await api.post(
+            "/api/v1/properties",
+            json={
+                "kind": "apartamento",
+                "purpose": "locacao",
+                "title": "Kitnet mobiliada perto da UFJF, ideal para estudante",
+                "description": DESCRICAO,
+                "rent_price": "1400.00",
+                "iptu_amount": "0",
+                "area_util": "32.00",
+                "bedrooms": 1,
+                "parking_spots": 0,
+                "address": {"bairro": "São Mateus", "cidade": "Juiz de Fora", "uf": "MG"},
+            },
+        )
+    ).json()
+    await api.post(
+        f"/api/v1/properties/{imovel['id']}/photos",
+        files={"file": ("frente.jpg", _jpeg(), "image/jpeg")},
+    )
+    await api.post(
+        f"/api/v1/properties/{imovel['id']}/publish",
+        json={"publish_site": True, "publish_portals": True},
+    )
+
+    key = await _public_key(api)
+    resp = await pub.get(f"/public/{key}/feed/chavesnamao.xml")
+    assert resp.status_code == 200
+    root = ET.fromstring(resp.content)
+    assert root.tag == "imoveis"
+    assert len(root.findall("imovel")) == 1

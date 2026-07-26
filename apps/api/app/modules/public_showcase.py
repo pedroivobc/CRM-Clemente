@@ -18,13 +18,14 @@ from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.db import platform_connection, tenant_connection
 from app.core.ratelimit import public_lead_rate_limit, public_read_rate_limit
+from app.domain.feeds import build_chavesnamao_feed, build_vrsync_feed
 from app.domain.publishing import public_address, video_embed_url, whatsapp_link
 from app.services.storage import BUCKET_BRANDING, BUCKET_PROPERTY_PHOTOS, get_storage
 
@@ -458,6 +459,124 @@ async def capture_lead(payload: LeadIn, db: PublicDb, tenant_id: TenantId) -> di
         },
     )
     return {"received": True}
+
+
+# ── Feeds para portais ───────────────────────────────────────────────────────
+@router.get(
+    "/{key}/feed/vrsync.xml",
+    dependencies=[Depends(public_read_rate_limit)],
+)
+async def feed_vrsync(db: PublicDb) -> Response:
+    """Feed XML no padrão VRSync (Grupo Zap: ZAP, VivaReal, OLX).
+
+    Portal lê 2×/dia. Só entram imóveis com `publish_portals`, respeitando o
+    `address_visibility` do proprietário. Se a imobiliária pediu marca d'água
+    nos portais, as fotos vêm marcadas; caso contrário, versão limpa.
+    """
+    tenant, properties, apply_wm = await _feed_payload(db)
+    xml = build_vrsync_feed(
+        tenant=tenant, properties=properties, apply_watermark_on_portals=apply_wm
+    )
+    return Response(content=xml, media_type="application/xml; charset=utf-8")
+
+
+@router.get(
+    "/{key}/feed/chavesnamao.xml",
+    dependencies=[Depends(public_read_rate_limit)],
+)
+async def feed_chavesnamao(db: PublicDb) -> Response:
+    """Feed XML no padrão Chaves na Mão."""
+    tenant, properties, apply_wm = await _feed_payload(db)
+    xml = build_chavesnamao_feed(
+        tenant=tenant, properties=properties, apply_watermark_on_portals=apply_wm
+    )
+    return Response(content=xml, media_type="application/xml; charset=utf-8")
+
+
+async def _feed_payload(db: AsyncConnection) -> tuple[dict, list[dict], bool]:
+    branding = (
+        (
+            await db.execute(
+                text("select display_name from core.tenant_branding")
+            )
+        )
+        .mappings()
+        .first()
+    )
+    contact = (
+        (
+            await db.execute(
+                text("select phone, email from core.tenant_public")
+            )
+        )
+        .mappings()
+        .first()
+    )
+    tenant = {
+        "display_name": branding["display_name"] if branding else "Imobiliária",
+        "phone": contact["phone"] if contact else None,
+        "email": contact["email"] if contact else None,
+    }
+
+    wm_row = (
+        (
+            await db.execute(
+                text(
+                    "select apply_on_portals from properties.watermark_settings limit 1"
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+    apply_wm = bool(wm_row["apply_on_portals"]) if wm_row else False
+    photo_column = "watermarked_path" if apply_wm else "original_path"
+
+    rows = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select p.*
+                    from properties.properties p
+                    where p.publish_portals
+                    order by p.published_at desc nulls last, p.created_at desc
+                    """
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+    storage = get_storage()
+
+    properties: list[dict] = []
+    for row in rows:
+        photos = (
+            (
+                await db.execute(
+                    text(
+                        f"select {photo_column} as path "  # noqa: S608
+                        "from properties.property_photos "
+                        f"where property_id = :pid and {photo_column} is not null "  # noqa: S608
+                        "order by is_cover desc, sort_order"
+                    ),
+                    {"pid": str(row["id"])},
+                )
+            )
+            .scalars()
+            .all()
+        )
+        properties.append(
+            {
+                **dict(row),
+                "photos": [
+                    storage.public_url(BUCKET_PROPERTY_PHOTOS, p) for p in photos
+                ],
+            }
+        )
+
+    return tenant, properties, apply_wm
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
