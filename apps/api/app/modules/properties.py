@@ -153,7 +153,9 @@ class WatermarkSettings(BaseModel):
     position: str = Field(
         "bottom-right", pattern="^(bottom-right|bottom-left|top-right|top-left|center)$"
     )
-    opacity: Decimal = Field(Decimal("0.65"), ge=0, le=1)
+    # 0.35 é discreto: a foto vende, o logo assina. Deixe subir se a
+    # imobiliária pedir; nunca desça abaixo de 0.1 (some).
+    opacity: Decimal = Field(Decimal("0.35"), ge=0.1, le=1)
     apply_on_site: bool = True
     apply_on_portals: bool = False
 
@@ -536,6 +538,9 @@ async def update_watermark_settings(
         },
     )
     await record_audit(db, user, "tenant_branding", user.tenant_id, "update")
+    # Reaplica a marca em toda a carteira do tenant — se ligou, desligou ou
+    # trocou de opacidade, as fotos publicadas precisam refletir a mudança.
+    await enqueue("rewatermark_tenant_photos", str(user.tenant_id))
     return payload
 
 

@@ -6,10 +6,12 @@ import io
 
 from PIL import Image
 
-# Proporção da largura da foto ocupada pelo logo e margem, em fração da largura.
-LOGO_WIDTH_RATIO = 0.22
-MARGIN_RATIO = 0.025
-DEFAULT_OPACITY = 0.65
+# Padrões deliberadamente discretos: a foto vende, o logo só assina. Vai
+# mais leve que o comum do mercado — dá para escurecer por tenant nas
+# properties.watermark_settings.
+LOGO_WIDTH_RATIO = 0.15
+MARGIN_RATIO = 0.02
+DEFAULT_OPACITY = 0.35
 MAX_DIMENSION = 2000
 
 

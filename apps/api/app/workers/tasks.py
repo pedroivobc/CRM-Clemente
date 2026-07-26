@@ -28,9 +28,14 @@ async def watermark_photo(ctx: dict[str, Any], tenant_id: str, photo_id: str) ->
             await conn.execute(
                 text(
                     """
-                    select p.original_path, b.logo_path
+                    select p.original_path, b.logo_path,
+                           coalesce(w.enabled, true) as enabled,
+                           coalesce(w.opacity, 0.35) as opacity,
+                           coalesce(w.position, 'bottom-right') as position,
+                           coalesce(w.apply_on_site, true) as apply_on_site
                     from properties.property_photos p
                     left join core.tenant_branding b on b.tenant_id = p.tenant_id
+                    left join properties.watermark_settings w on w.tenant_id = p.tenant_id
                     where p.id = :pid
                     """
                 ),
@@ -42,18 +47,22 @@ async def watermark_photo(ctx: dict[str, Any], tenant_id: str, photo_id: str) ->
         logger.warning("Foto %s não encontrada (tenant %s)", photo_id, tenant_id)
         return "not_found"
 
-    original_path, logo_path = row
+    original_path, logo_path, wm_enabled, wm_opacity, wm_position, wm_site = row
 
     try:
         original = await storage.download(BUCKET_PROPERTY_PHOTOS, original_path)
         logo = None
-        if logo_path:
+        # Só marca se o tenant deixar ligado E marcar for aplicável ao site
+        # (é a versão pública/marcada que vira a capa em toda superfície).
+        if logo_path and wm_enabled and wm_site:
             try:
                 logo = await storage.download(BUCKET_BRANDING, logo_path)
             except Exception:
                 logger.warning("Logo do tenant %s indisponível; seguindo sem marca", tenant_id)
 
-        marked = apply_watermark(original, logo)
+        marked = apply_watermark(
+            original, logo, opacity=float(wm_opacity), position=wm_position
+        )
         marked_path = _watermarked_path(original_path)
         await storage.upload(BUCKET_PROPERTY_PHOTOS, marked_path, marked, "image/jpeg")
         status, stored_path = "done", marked_path
