@@ -19,7 +19,9 @@ from app.domain.publishing import (
     build_slug,
     public_address,
     publication_blockers,
+    whatsapp_link,
 )
+from app.domain.social import build_social_caption
 from app.modules.common import Address, Page
 from app.services.storage import BUCKET_PROPERTY_PHOTOS, get_storage, tenant_path
 from app.workers.queue import enqueue
@@ -448,6 +450,78 @@ async def update_property(
         after=after.model_dump(mode="json"),
     )
     return after
+
+
+class CaptionOut(BaseModel):
+    platform: str
+    caption: str
+
+
+@router.get("/{property_id}/caption", response_model=CaptionOut)
+async def generate_caption(
+    property_id: UUID,
+    db: DbDep,
+    platform: str = Query("instagram", pattern="^(instagram|facebook)$"),
+    user: CurrentUser = Depends(require_permission("imoveis", "view")),
+) -> CaptionOut:
+    """Legenda pronta para colar no Instagram ou Facebook.
+
+    Usa os dados do imóvel e o contato da vitrine. Determinística — o mesmo
+    imóvel produz sempre o mesmo texto, então o botão "copiar" da ficha entrega
+    aquilo que a imobiliária já revisou. Sem chamar LLM: legenda de imóvel
+    tem estrutura fixa e a imobiliária quer previsibilidade, não criatividade.
+    """
+    prop = await _get_property(db, property_id)
+    contact = (
+        (
+            await db.execute(
+                text(
+                    "select whatsapp, phone from core.tenant_public where tenant_id = :tid"
+                ),
+                {"tid": str(user.tenant_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    whatsapp = contact["whatsapp"] if contact else None
+    phone = contact["phone"] if contact else None
+
+    site_url = None
+    if prop.slug:
+        site_url = f"/imovel/{prop.slug}"
+
+    wa_url = None
+    if whatsapp:
+        wa_url = whatsapp_link(phone=whatsapp, code=prop.code, url=site_url or "")
+
+    caption = build_social_caption(
+        platform=platform,  # type: ignore[arg-type]
+        kind=prop.kind,
+        purpose=prop.purpose,
+        code=prop.code,
+        title=prop.title,
+        description=prop.description,
+        bairro=prop.public_address.get("bairro"),
+        cidade=prop.public_address.get("cidade"),
+        uf=prop.public_address.get("uf"),
+        area_util=prop.area_util,
+        bedrooms=prop.bedrooms,
+        suites=prop.suites,
+        bathrooms=prop.bathrooms,
+        parking_spots=prop.parking_spots,
+        sale_price=prop.sale_price,
+        rent_price=prop.rent_price,
+        condo_fee=prop.condo_fee,
+        iptu_amount=prop.iptu_amount,
+        pet_allowed=prop.pet_allowed,
+        republic_allowed=prop.republic_allowed,
+        has_leisure_area=prop.has_leisure_area,
+        whatsapp_url=wa_url,
+        phone=phone,
+        site_url=site_url,
+    )
+    return CaptionOut(platform=platform, caption=caption)
 
 
 @router.post("/{property_id}/publish", response_model=PropertyOut)

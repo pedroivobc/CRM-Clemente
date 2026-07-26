@@ -3,8 +3,10 @@ import {
   AlertTriangle,
   ArrowLeft,
   Check,
+  Copy,
   Globe,
   ImagePlus,
+  Instagram,
   Megaphone,
   Star,
   Trash2,
@@ -121,6 +123,8 @@ export function ImovelDetalhe() {
               </p>
             </Card>
           ) : null}
+
+          <SocialCaption propertyId={id} />
         </div>
 
         <div className="space-y-5">
@@ -203,6 +207,75 @@ export function ImovelDetalhe() {
     </>
   );
 }
+
+function SocialCaption({ propertyId }: { propertyId: string }) {
+  const [platform, setPlatform] = React.useState<"instagram" | "facebook">("instagram");
+  const [copied, setCopied] = React.useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["caption", propertyId, platform],
+    queryFn: () =>
+      api.get<{ platform: string; caption: string }>(
+        `/properties/${propertyId}/caption?platform=${platform}`,
+      ),
+  });
+
+  async function copy() {
+    if (!data?.caption) return;
+    try {
+      await navigator.clipboard.writeText(data.caption);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // silencioso — o textarea abaixo mostra o texto para copiar manual.
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Instagram className="size-4 text-muted" />
+            Legenda para redes sociais
+          </span>
+        }
+        hint="Texto pronto — revise e cole no Instagram ou Facebook."
+        action={
+          <div className="flex items-center gap-1 rounded-md border border-line bg-sunken p-0.5 text-[12px]">
+            {(["instagram", "facebook"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPlatform(p)}
+                className={`rounded px-2.5 py-1 ${
+                  platform === p ? "bg-surface text-ink shadow-sm" : "text-muted"
+                }`}
+              >
+                {p === "instagram" ? "Instagram" : "Facebook"}
+              </button>
+            ))}
+          </div>
+        }
+      />
+
+      <div className="space-y-3 px-5 py-4">
+        <textarea
+          readOnly
+          value={isLoading ? "Gerando…" : (data?.caption ?? "")}
+          className="min-h-[200px] w-full resize-y rounded-md border border-line bg-sunken p-3 font-mono text-[12.5px] leading-relaxed text-ink"
+        />
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={copy} disabled={!data?.caption}>
+            <Copy />
+            {copied ? "Copiado!" : "Copiar legenda"}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 
 function PublishPanel({ property, canEdit }: { property: Property; canEdit: boolean }) {
   const queryClient = useQueryClient();
