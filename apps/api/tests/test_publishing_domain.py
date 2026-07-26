@@ -10,6 +10,7 @@ from app.domain.publishing import (
     public_address,
     publication_blockers,
     slugify,
+    video_embed_url,
     whatsapp_link,
 )
 
@@ -185,6 +186,35 @@ def test_whatsapp_link_identifica_imovel_e_leva_a_url():
 def test_whatsapp_nao_duplica_ddi():
     link = whatsapp_link(phone="5532998510706", code="IM-1", url="http://x")
     assert "wa.me/5532998510706" in link
+
+
+# ── Embed de vídeo ───────────────────────────────────────────────────────────
+def test_youtube_watch_vira_embed():
+    assert (
+        video_embed_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        == "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    )
+
+
+def test_youtube_short_e_shorts_tambem_viram_embed():
+    assert video_embed_url("https://youtu.be/dQw4w9WgXcQ").endswith("/embed/dQw4w9WgXcQ")
+    assert (
+        video_embed_url("https://www.youtube.com/shorts/dQw4w9WgXcQ")
+        == "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    )
+
+
+def test_vimeo_vira_embed():
+    assert (
+        video_embed_url("https://vimeo.com/123456789")
+        == "https://player.vimeo.com/video/123456789"
+    )
+
+
+def test_url_desconhecida_devolve_none():
+    assert video_embed_url("https://tiktok.com/x") is None
+    assert video_embed_url("") is None
+    assert video_embed_url(None) is None
 
 
 def test_todo_kind_tem_property_type_do_vrsync():

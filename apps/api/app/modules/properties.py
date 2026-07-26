@@ -105,6 +105,7 @@ class PropertyIn(BaseModel):
     condo_fee: Decimal | None = None
     iptu_amount: Decimal | None = None
     tour_url: str | None = None
+    video_url: str | None = None
     is_exclusive: bool = False
     owners: list[OwnerIn] = Field(default_factory=list)
 
@@ -139,6 +140,7 @@ class PropertyUpdate(BaseModel):
     condo_fee: Decimal | None = None
     iptu_amount: Decimal | None = None
     tour_url: str | None = None
+    video_url: str | None = None
     is_exclusive: bool | None = None
     owners: list[OwnerIn] | None = None
 
@@ -230,6 +232,7 @@ class PropertyOut(BaseModel):
     condo_fee: Decimal | None
     iptu_amount: Decimal | None
     tour_url: str | None
+    video_url: str | None
     is_exclusive: bool
     publish_site: bool
     publish_portals: bool
@@ -332,7 +335,7 @@ async def create_property(
                      year_built, floors, unit_floor, lot_area, area_util, bedrooms, suites,
                      bathrooms, parking_spots, pet_allowed, republic_allowed, has_leisure_area,
                      rental_warranties, sale_price, rent_price, condo_fee, iptu_amount,
-                     tour_url, is_exclusive)
+                     tour_url, video_url, is_exclusive)
                 values
                     (:tid, :code, :slug, :kind, :purpose, :usage_type, :title, :description,
                      cast(:address as jsonb), :address_visibility, :registry_number, :iptu_code,
@@ -340,7 +343,7 @@ async def create_property(
                      :area_util, :bedrooms, :suites, :bathrooms, :parking_spots,
                      :pet_allowed, :republic_allowed, :has_leisure_area,
                      :rental_warranties, :sale_price, :rent_price, :condo_fee, :iptu_amount,
-                     :tour_url, :is_exclusive)
+                     :tour_url, :video_url, :is_exclusive)
                 returning id
                 """
             ),
@@ -376,6 +379,7 @@ async def create_property(
                 "condo_fee": payload.condo_fee,
                 "iptu_amount": payload.iptu_amount,
                 "tour_url": payload.tour_url,
+                "video_url": payload.video_url,
                 "is_exclusive": payload.is_exclusive,
             },
         )
@@ -911,6 +915,7 @@ async def _to_property_out(db, row, *, with_details: bool = True) -> PropertyOut
         condo_fee=row["condo_fee"],
         iptu_amount=row["iptu_amount"],
         tour_url=row["tour_url"],
+        video_url=row["video_url"],
         is_exclusive=row["is_exclusive"],
         publish_site=row["publish_site"],
         publish_portals=row["publish_portals"],

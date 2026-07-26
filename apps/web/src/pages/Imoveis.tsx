@@ -219,6 +219,7 @@ export function PropertyFormDialog({
     condo_fee: "",
     iptu_amount: "",
     registry_number: "",
+    video_url: "",
     bedrooms: "",
     suites: "",
     bathrooms: "",
@@ -242,6 +243,7 @@ export function PropertyFormDialog({
         description: form.description || null,
         address,
         registry_number: form.registry_number || null,
+        video_url: form.video_url.trim() || null,
         rent_price: form.rent_price || null,
         sale_price: form.sale_price || null,
         condo_fee: form.condo_fee || null,
@@ -433,13 +435,22 @@ export function PropertyFormDialog({
           </div>
         </fieldset>
 
-        <Field label="Matrícula" className="sm:max-w-xs">
-          <Input
-            value={form.registry_number}
-            onChange={(e) => set({ registry_number: e.target.value })}
-            className="font-mono"
-          />
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Matrícula">
+            <Input
+              value={form.registry_number}
+              onChange={(e) => set({ registry_number: e.target.value })}
+              className="font-mono"
+            />
+          </Field>
+          <Field label="Vídeo do imóvel" hint="Cole o link do YouTube ou Vimeo">
+            <Input
+              value={form.video_url}
+              onChange={(e) => set({ video_url: e.target.value })}
+              placeholder="https://youtu.be/…"
+            />
+          </Field>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-4">
           <Field label="CEP">

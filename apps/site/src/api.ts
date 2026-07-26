@@ -99,6 +99,8 @@ export type PublicDetail = PublicCard & {
   bathrooms: number | null;
   rental_warranties: string[];
   tour_url: string | null;
+  video_url: string | null;
+  video_embed: string | null;
   photos: string[];
 };
 

@@ -136,6 +136,7 @@ export type Property = {
   condo_fee: string | null;
   iptu_amount: string | null;
   tour_url: string | null;
+  video_url: string | null;
   is_exclusive: boolean;
   publish_site: boolean;
   publish_portals: boolean;

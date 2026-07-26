@@ -159,6 +159,20 @@ export function ImovelDetalhe() {
               <InfoRow label="Inscrição IPTU" mono>
                 {property.iptu_code ?? "—"}
               </InfoRow>
+              <InfoRow label="Vídeo">
+                {property.video_url ? (
+                  <a
+                    href={property.video_url}
+                    target="_blank"
+                    rel="noopener"
+                    className="text-[var(--brand-primary)] hover:underline"
+                  >
+                    Abrir
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </InfoRow>
             </dl>
           </Card>
 

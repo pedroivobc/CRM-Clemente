@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from app.core.db import platform_connection, tenant_connection
 from app.core.ratelimit import public_lead_rate_limit, public_read_rate_limit
-from app.domain.publishing import public_address, whatsapp_link
+from app.domain.publishing import public_address, video_embed_url, whatsapp_link
 from app.services.storage import BUCKET_BRANDING, BUCKET_PROPERTY_PHOTOS, get_storage
 
 router = APIRouter(tags=["vitrine pública"])
@@ -132,6 +132,9 @@ class PublicDetail(PublicCard):
     bathrooms: int | None
     rental_warranties: list[str]
     tour_url: str | None
+    video_url: str | None
+    # Embed pronto para <iframe> (YouTube/Vimeo), quando video_url reconhecido.
+    video_embed: str | None
     photos: list[str] = Field(default_factory=list)
 
 
@@ -377,6 +380,8 @@ async def public_property(db: PublicDb, slug: str) -> PublicDetail:
         bathrooms=row["bathrooms"],
         rental_warranties=list(row["rental_warranties"] or []),
         tour_url=row["tour_url"],
+        video_url=row["video_url"],
+        video_embed=video_embed_url(row["video_url"]),
         photos=[storage.public_url(BUCKET_PROPERTY_PHOTOS, p) for p in photos],
     )
 

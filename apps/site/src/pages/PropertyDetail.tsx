@@ -51,6 +51,17 @@ export function PropertyDetail() {
           )}
         </div>
 
+        {item.video_embed ? (
+          <div className="video">
+            <iframe
+              src={item.video_embed}
+              title={`Vídeo do imóvel ${item.code}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        ) : null}
+
         <div className="detail-grid">
           <div>
             <div className="chips">

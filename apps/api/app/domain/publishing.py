@@ -203,6 +203,30 @@ def publication_blockers(
     return blockers
 
 
+def video_embed_url(url: str | None) -> str | None:
+    """Converte URL comum de YouTube ou Vimeo no formato de embed em iframe.
+
+    A imobiliária cola o link normal (do celular, do compartilhar); o site
+    pronto e o widget precisam da forma /embed/. Se não reconhecer, devolve
+    ``None`` — melhor não mostrar do que abrir a página inteira num iframe.
+    """
+    if not url:
+        return None
+    stripped = url.strip()
+    # YouTube: youtu.be/<id> ou youtube.com/watch?v=<id> ou /shorts/<id>
+    yt = re.search(
+        r"(?:youtu\.be/|youtube\.com/(?:watch\?(?:.*&)?v=|shorts/|embed/))([A-Za-z0-9_-]{6,})",
+        stripped,
+    )
+    if yt:
+        return f"https://www.youtube.com/embed/{yt.group(1)}"
+    # Vimeo: vimeo.com/<id>
+    vm = re.search(r"vimeo\.com/(?:video/)?(\d+)", stripped)
+    if vm:
+        return f"https://player.vimeo.com/video/{vm.group(1)}"
+    return None
+
+
 def whatsapp_link(*, phone: str, code: str, url: str) -> str:
     """Deep link de WhatsApp já com o imóvel identificado e a URL na mensagem.
 

@@ -110,6 +110,8 @@
       ".sheet .gal{display:flex;gap:6px;overflow-x:auto;background:#000;scroll-snap-type:x mandatory}" +
       ".sheet .gal img{height:300px;scroll-snap-align:center;object-fit:cover;flex:0 0 auto}" +
       ".sheet .gal .noimg{height:300px;width:100%;display:grid;place-items:center;color:#fff;background:#2a2e37}" +
+      ".sheet .video{aspect-ratio:16/9;background:#000}" +
+      ".sheet .video iframe{width:100%;height:100%;border:0;display:block}" +
       ".dt{padding:20px 22px}" +
       ".dt h2{margin:0 0 4px;font-size:20px}" +
       ".dt .loc{margin-bottom:12px}" +
@@ -249,9 +251,16 @@
       : "";
     var leadForm = state.config.lead_capture_enabled ? leadFormHtml() : "";
 
+    var video = p.video_embed
+      ? '<div class="video"><iframe src="' + esc(p.video_embed) +
+        '" title="Vídeo do imóvel ' + esc(p.code) +
+        '" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture"' +
+        ' allowfullscreen></iframe></div>'
+      : "";
+
     ov.innerHTML =
       '<button class="close" aria-label="Fechar">×</button>' +
-      '<div class="sheet"><div class="gal">' + gal + "</div>" +
+      '<div class="sheet"><div class="gal">' + gal + "</div>" + video +
       '<div class="dt"><h2>' + esc(p.title) + "</h2>" +
       '<div class="loc">' + esc(kindLabel(p.kind)) + " · " + esc(locText(p)) + "</div>" +
       '<div class="price">' + priceHtml(p) + "</div>" +
