@@ -89,6 +89,16 @@ class PropertyIn(BaseModel):
     floors: int | None = None
     unit_floor: int | None = None
     lot_area: Decimal | None = None
+    # Campos tipados que antes viviam em features (jsonb).
+    area_util: Decimal | None = None
+    bedrooms: int | None = None
+    suites: int | None = None
+    bathrooms: int | None = None
+    parking_spots: int | None = None
+    # Perfis do imóvel (locação sobretudo). None = "não informado".
+    pet_allowed: bool | None = None
+    republic_allowed: bool | None = None
+    has_leisure_area: bool | None = None
     rental_warranties: list[str] = Field(default_factory=list)
     sale_price: Decimal | None = None
     rent_price: Decimal | None = None
@@ -115,6 +125,14 @@ class PropertyUpdate(BaseModel):
     floors: int | None = None
     unit_floor: int | None = None
     lot_area: Decimal | None = None
+    area_util: Decimal | None = None
+    bedrooms: int | None = None
+    suites: int | None = None
+    bathrooms: int | None = None
+    parking_spots: int | None = None
+    pet_allowed: bool | None = None
+    republic_allowed: bool | None = None
+    has_leisure_area: bool | None = None
     rental_warranties: list[str] | None = None
     sale_price: Decimal | None = None
     rent_price: Decimal | None = None
@@ -196,6 +214,14 @@ class PropertyOut(BaseModel):
     floors: int | None
     unit_floor: int | None
     lot_area: Decimal | None
+    area_util: Decimal | None
+    bedrooms: int | None
+    suites: int | None
+    bathrooms: int | None
+    parking_spots: int | None
+    pet_allowed: bool | None
+    republic_allowed: bool | None
+    has_leisure_area: bool | None
     rental_warranties: list[str]
     sale_price: Decimal | None
     rent_price: Decimal | None
@@ -288,7 +314,7 @@ async def create_property(
         kind=payload.kind,
         purpose=payload.purpose,
         code=code,
-        bedrooms=_int_or_none(payload.features.get("quartos")),
+        bedrooms=payload.bedrooms,
         neighborhood=address.get("bairro"),
         city=address.get("cidade"),
         uf=address.get("uf"),
@@ -301,12 +327,16 @@ async def create_property(
                 insert into properties.properties
                     (tenant_id, code, slug, kind, purpose, usage_type, title, description,
                      address, address_visibility, registry_number, iptu_code, features,
-                     year_built, floors, unit_floor, lot_area, rental_warranties,
-                     sale_price, rent_price, condo_fee, iptu_amount, tour_url, is_exclusive)
+                     year_built, floors, unit_floor, lot_area, area_util, bedrooms, suites,
+                     bathrooms, parking_spots, pet_allowed, republic_allowed, has_leisure_area,
+                     rental_warranties, sale_price, rent_price, condo_fee, iptu_amount,
+                     tour_url, is_exclusive)
                 values
                     (:tid, :code, :slug, :kind, :purpose, :usage_type, :title, :description,
                      cast(:address as jsonb), :address_visibility, :registry_number, :iptu_code,
                      cast(:features as jsonb), :year_built, :floors, :unit_floor, :lot_area,
+                     :area_util, :bedrooms, :suites, :bathrooms, :parking_spots,
+                     :pet_allowed, :republic_allowed, :has_leisure_area,
                      :rental_warranties, :sale_price, :rent_price, :condo_fee, :iptu_amount,
                      :tour_url, :is_exclusive)
                 returning id
@@ -330,6 +360,14 @@ async def create_property(
                 "floors": payload.floors,
                 "unit_floor": payload.unit_floor,
                 "lot_area": payload.lot_area,
+                "area_util": payload.area_util,
+                "bedrooms": payload.bedrooms,
+                "suites": payload.suites,
+                "bathrooms": payload.bathrooms,
+                "parking_spots": payload.parking_spots,
+                "pet_allowed": payload.pet_allowed,
+                "republic_allowed": payload.republic_allowed,
+                "has_leisure_area": payload.has_leisure_area,
                 "rental_warranties": payload.rental_warranties,
                 "sale_price": payload.sale_price,
                 "rent_price": payload.rent_price,
@@ -387,7 +425,7 @@ async def update_property(
         )
 
     # O slug carrega tipo, bairro e cidade; se algum deles mudou, ele acompanha.
-    if fields.keys() & {"kind", "purpose", "address", "features"}:
+    if fields.keys() & {"kind", "purpose", "address", "bedrooms"}:
         await _refresh_slug(db, property_id)
 
     if payload.owners is not None:
@@ -854,6 +892,14 @@ async def _to_property_out(db, row, *, with_details: bool = True) -> PropertyOut
         floors=row["floors"],
         unit_floor=row["unit_floor"],
         lot_area=row["lot_area"],
+        area_util=row["area_util"],
+        bedrooms=row["bedrooms"],
+        suites=row["suites"],
+        bathrooms=row["bathrooms"],
+        parking_spots=row["parking_spots"],
+        pet_allowed=row["pet_allowed"],
+        republic_allowed=row["republic_allowed"],
+        has_leisure_area=row["has_leisure_area"],
         rental_warranties=list(row["rental_warranties"] or []),
         sale_price=row["sale_price"],
         rent_price=row["rent_price"],
@@ -916,6 +962,10 @@ def _blockers_from_row(row, photo_count: int) -> list[str]:
         rent_price=row["rent_price"],
         photo_count=photo_count,
         address=row["address"] or {},
+        kind=row["kind"],
+        area_util=row["area_util"],
+        bedrooms=row["bedrooms"],
+        iptu_amount=row["iptu_amount"],
     )
 
 
@@ -929,6 +979,10 @@ def _blockers_for(prop: PropertyOut, photo_count: int) -> list[str]:
         rent_price=prop.rent_price,
         photo_count=photo_count,
         address=prop.address,
+        kind=prop.kind,
+        area_util=prop.area_util,
+        bedrooms=prop.bedrooms,
+        iptu_amount=prop.iptu_amount,
     )
 
 
@@ -947,7 +1001,7 @@ async def _refresh_slug(db, property_id: UUID) -> None:
         (
             await db.execute(
                 text(
-                    "select code, kind, purpose, features, address "
+                    "select code, kind, purpose, bedrooms, address "
                     "from properties.properties where id = :pid"
                 ),
                 {"pid": str(property_id)},
@@ -963,7 +1017,7 @@ async def _refresh_slug(db, property_id: UUID) -> None:
         kind=row["kind"],
         purpose=row["purpose"],
         code=row["code"],
-        bedrooms=_int_or_none((row["features"] or {}).get("quartos")),
+        bedrooms=row["bedrooms"],
         neighborhood=address.get("bairro"),
         city=address.get("cidade"),
         uf=address.get("uf"),

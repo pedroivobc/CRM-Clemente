@@ -34,7 +34,7 @@ SORTS = {
     "recentes": "p.published_at desc nulls last, p.created_at desc",
     "menor_preco": "coalesce(p.sale_price, p.rent_price) asc nulls last",
     "maior_preco": "coalesce(p.sale_price, p.rent_price) desc nulls last",
-    "maior_area": "(p.features->>'area_util')::numeric desc nulls last",
+    "maior_area": "p.area_util desc nulls last",
 }
 
 
@@ -59,9 +59,7 @@ async def resolve_by_host(host: str) -> dict:
     """
     async with platform_connection() as conn:
         key = (
-            await conn.execute(
-                text("select core.resolve_public_key_by_host(:h)"), {"h": host}
-            )
+            await conn.execute(text("select core.resolve_public_key_by_host(:h)"), {"h": host})
         ).scalar()
     if key is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Vitrine não encontrada para este host")
@@ -116,6 +114,9 @@ class PublicCard(BaseModel):
     bedrooms: int | None
     parking: int | None
     area: Decimal | None
+    pet_allowed: bool | None
+    republic_allowed: bool | None
+    has_leisure_area: bool | None
     cover_url: str | None
     whatsapp_url: str | None
 
@@ -250,6 +251,9 @@ async def list_public_properties(
     min_price: Decimal | None = None,
     max_price: Decimal | None = None,
     q: str | None = None,
+    pet_allowed: bool | None = None,
+    republic_allowed: bool | None = None,
+    has_leisure_area: bool | None = None,
     sort: str = Query("recentes"),
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=48),
@@ -270,7 +274,7 @@ async def list_public_properties(
         filters.append("p.address->>'bairro' = :neighborhood")
         params["neighborhood"] = neighborhood
     if bedrooms is not None:
-        filters.append("coalesce((p.features->>'quartos')::int, 0) >= :bedrooms")
+        filters.append("coalesce(p.bedrooms, 0) >= :bedrooms")
         params["bedrooms"] = bedrooms
     if min_price is not None:
         filters.append("coalesce(p.sale_price, p.rent_price) >= :min_price")
@@ -281,6 +285,13 @@ async def list_public_properties(
     if q:
         filters.append("(p.title ilike :q or p.code ilike :q or p.address->>'bairro' ilike :q)")
         params["q"] = f"%{q}%"
+    # Flags de perfil: só filtram quando o visitante pede explicitamente.
+    if pet_allowed:
+        filters.append("p.pet_allowed is true")
+    if republic_allowed:
+        filters.append("p.republic_allowed is true")
+    if has_leisure_area:
+        filters.append("p.has_leisure_area is true")
 
     where = " and ".join(filters)
     order = SORTS.get(sort, SORTS["recentes"])
@@ -353,7 +364,6 @@ async def public_property(db: PublicDb, slug: str) -> PublicDetail:
     )
 
     whatsapp = await _tenant_whatsapp(db)
-    features = row["features"] or {}
     card = _card(row, whatsapp, photos[0] if photos else None)
     return PublicDetail(
         **card.model_dump(),
@@ -363,8 +373,8 @@ async def public_property(db: PublicDb, slug: str) -> PublicDetail:
         year_built=row["year_built"],
         floors=row["floors"],
         unit_floor=row["unit_floor"],
-        suites=_int(features.get("suites")),
-        bathrooms=_int(features.get("banheiros")),
+        suites=row["suites"],
+        bathrooms=row["bathrooms"],
         rental_warranties=list(row["rental_warranties"] or []),
         tour_url=row["tour_url"],
         photos=[storage.public_url(BUCKET_PROPERTY_PHOTOS, p) for p in photos],
@@ -466,7 +476,6 @@ async def _infer_interest(db: AsyncConnection, code: str | None) -> str:
 
 def _card(row, whatsapp: str | None, cover_path: str | None) -> PublicCard:
     storage = get_storage()
-    features = row["features"] or {}
     wa = (
         whatsapp_link(phone=whatsapp, code=row["code"], url=f"/imovel/{row['slug'] or row['code']}")
         if whatsapp
@@ -482,23 +491,12 @@ def _card(row, whatsapp: str | None, cover_path: str | None) -> PublicCard:
         sale_price=row["sale_price"],
         rent_price=row["rent_price"],
         condo_fee=row["condo_fee"],
-        bedrooms=_int(features.get("quartos")),
-        parking=_int(features.get("vagas")),
-        area=_decimal(features.get("area_util")),
+        bedrooms=row["bedrooms"],
+        parking=row["parking_spots"],
+        area=row["area_util"],
+        pet_allowed=row["pet_allowed"],
+        republic_allowed=row["republic_allowed"],
+        has_leisure_area=row["has_leisure_area"],
         cover_url=storage.public_url(BUCKET_PROPERTY_PHOTOS, cover_path) if cover_path else None,
         whatsapp_url=wa,
     )
-
-
-def _int(value: object) -> int | None:
-    try:
-        return int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return None
-
-
-def _decimal(value: object) -> Decimal | None:
-    try:
-        return Decimal(str(value))
-    except (TypeError, ValueError):
-        return None

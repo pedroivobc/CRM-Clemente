@@ -123,6 +123,23 @@ def public_address(address: dict | None, visibility: str) -> dict:
     }
 
 
+# Tipos onde não faz sentido cobrar número de quartos (comercial/terreno).
+_NON_RESIDENTIAL = {
+    "sala_comercial",
+    "loja",
+    "ponto_comercial",
+    "galpao",
+    "andar_corporativo",
+    "predio",
+    "hotel_pousada",
+    "terreno",
+    "lote_condominio",
+    "sitio_chacara",
+    "fazenda",
+    "vaga_garagem",
+}
+
+
 def publication_blockers(
     *,
     purpose: str,
@@ -133,6 +150,10 @@ def publication_blockers(
     rent_price: object | None,
     photo_count: int,
     address: dict | None,
+    kind: str | None = None,
+    area_util: object | None = None,
+    bedrooms: object | None = None,
+    iptu_amount: object | None = None,
 ) -> list[str]:
     """Lista o que falta para o imóvel poder ir ao ar.
 
@@ -169,6 +190,15 @@ def publication_blockers(
         blockers.append("Informe ao menos o bairro para a localização.")
     if not address.get("cidade"):
         blockers.append("Informe a cidade.")
+
+    # Campos que o portal exige e que valem para todo imóvel — não faz sentido
+    # anunciar sem dizer a área. Quartos só para o que tem quartos.
+    if not _positive(area_util):
+        blockers.append("Informe a área útil (m²).")
+    if bedrooms is None and (kind is None or kind not in _NON_RESIDENTIAL):
+        blockers.append("Informe o número de quartos.")
+    if iptu_amount is None:
+        blockers.append("Informe o valor do IPTU (marque 0 se for isento).")
 
     return blockers
 

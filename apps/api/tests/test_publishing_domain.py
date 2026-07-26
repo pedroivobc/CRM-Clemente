@@ -100,6 +100,10 @@ def _imovel_ok(**over):
         rent_price=None,
         photo_count=9,
         address=ENDERECO,
+        kind="apartamento",
+        area_util=Decimal("68"),
+        bedrooms=2,
+        iptu_amount=Decimal("1200"),
     )
     base.update(over)
     return publication_blockers(**base)
@@ -143,6 +147,26 @@ def test_titulo_curto_reprova():
 def test_sem_bairro_nao_publica():
     endereco = {"cidade": "Juiz de Fora", "uf": "MG"}
     assert any("bairro" in b for b in _imovel_ok(address=endereco))
+
+
+def test_sem_area_util_nao_publica():
+    assert any("área útil" in b for b in _imovel_ok(area_util=None))
+
+
+def test_sem_quartos_nao_publica_em_residencial():
+    assert any("quartos" in b for b in _imovel_ok(bedrooms=None))
+
+
+def test_terreno_nao_exige_quartos():
+    # Terreno não tem quartos; o impedimento não deve aparecer.
+    blockers = _imovel_ok(kind="terreno", bedrooms=None)
+    assert not any("quartos" in b for b in blockers)
+
+
+def test_iptu_e_obrigatorio_mesmo_zero():
+    assert any("IPTU" in b for b in _imovel_ok(iptu_amount=None))
+    # Zero conta como informado (isento).
+    assert not any("IPTU" in b for b in _imovel_ok(iptu_amount=Decimal("0")))
 
 
 # ── WhatsApp e VRSync ────────────────────────────────────────────────────────

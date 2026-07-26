@@ -81,6 +81,9 @@ export type PublicCard = {
   bedrooms: number | null;
   parking: number | null;
   area: string | null;
+  pet_allowed: boolean | null;
+  republic_allowed: boolean | null;
+  has_leisure_area: boolean | null;
   cover_url: string | null;
   whatsapp_url: string | null;
 };

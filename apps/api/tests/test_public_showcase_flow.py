@@ -48,7 +48,10 @@ async def _publish(
                 "title": f"Apartamento 2 quartos em {bairro} com ótima localização",
                 "description": DESCRICAO,
                 **({"sale_price": price} if purpose == "venda" else {"rent_price": price}),
-                "features": {"quartos": 2, "vagas": 1, "area_util": 68},
+                "iptu_amount": "1200.00",
+                "area_util": "68.00",
+                "bedrooms": 2,
+                "parking_spots": 1,
                 "address": {"bairro": bairro, "cidade": city, "uf": "MG"},
             },
         )

@@ -122,6 +122,14 @@ export type Property = {
   floors: number | null;
   unit_floor: number | null;
   lot_area: string | null;
+  area_util: string | null;
+  bedrooms: number | null;
+  suites: number | null;
+  bathrooms: number | null;
+  parking_spots: number | null;
+  pet_allowed: boolean | null;
+  republic_allowed: boolean | null;
+  has_leisure_area: boolean | null;
   rental_warranties: string[];
   sale_price: string | null;
   rent_price: string | null;

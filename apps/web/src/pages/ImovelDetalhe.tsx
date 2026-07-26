@@ -58,8 +58,6 @@ export function ImovelDetalhe() {
     );
   }
 
-  const features = property.features as Record<string, number | string | undefined>;
-
   return (
     <>
       <Link
@@ -145,11 +143,16 @@ export function ImovelDetalhe() {
           <Card>
             <CardHeader title="Ficha" />
             <dl className="divide-y divide-line-soft">
-              <InfoRow label="Quartos">{features.quartos ?? "—"}</InfoRow>
-              <InfoRow label="Vagas">{features.vagas ?? "—"}</InfoRow>
               <InfoRow label="Área útil">
-                {features.area_util ? `${features.area_util} m²` : "—"}
+                {property.area_util ? `${Number(property.area_util)} m²` : "—"}
               </InfoRow>
+              <InfoRow label="Quartos">{property.bedrooms ?? "—"}</InfoRow>
+              <InfoRow label="Suítes">{property.suites ?? "—"}</InfoRow>
+              <InfoRow label="Banheiros">{property.bathrooms ?? "—"}</InfoRow>
+              <InfoRow label="Vagas">{property.parking_spots ?? "—"}</InfoRow>
+              <InfoRow label="Aceita pet">{yesNo(property.pet_allowed)}</InfoRow>
+              <InfoRow label="Aceita república">{yesNo(property.republic_allowed)}</InfoRow>
+              <InfoRow label="Área de lazer">{yesNo(property.has_leisure_area)}</InfoRow>
               <InfoRow label="Matrícula" mono>
                 {property.registry_number ?? "—"}
               </InfoRow>
@@ -352,6 +355,10 @@ function ChannelToggle({
       </button>
     </div>
   );
+}
+
+function yesNo(v: boolean | null): string {
+  return v === true ? "Sim" : v === false ? "Não" : "—";
 }
 
 function MoneyRow({ label, value }: { label: string; value: string | null }) {

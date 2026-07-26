@@ -219,9 +219,14 @@ export function PropertyFormDialog({
     condo_fee: "",
     iptu_amount: "",
     registry_number: "",
-    quartos: "",
-    vagas: "",
+    bedrooms: "",
+    suites: "",
+    bathrooms: "",
+    parking_spots: "",
     area_util: "",
+    pet_allowed: null as boolean | null,
+    republic_allowed: null as boolean | null,
+    has_leisure_area: null as boolean | null,
   });
   const [address, setAddress] = React.useState<Address>({});
   const [error, setError] = React.useState<string | null>(null);
@@ -241,11 +246,14 @@ export function PropertyFormDialog({
         sale_price: form.sale_price || null,
         condo_fee: form.condo_fee || null,
         iptu_amount: form.iptu_amount || null,
-        features: {
-          ...(form.quartos ? { quartos: Number(form.quartos) } : {}),
-          ...(form.vagas ? { vagas: Number(form.vagas) } : {}),
-          ...(form.area_util ? { area_util: Number(form.area_util) } : {}),
-        },
+        area_util: form.area_util || null,
+        bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
+        suites: form.suites ? Number(form.suites) : null,
+        bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
+        parking_spots: form.parking_spots ? Number(form.parking_spots) : null,
+        pet_allowed: form.pet_allowed,
+        republic_allowed: form.republic_allowed,
+        has_leisure_area: form.has_leisure_area,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["properties"] });
@@ -366,36 +374,72 @@ export function PropertyFormDialog({
           </Field>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-4">
-          <Field label="Quartos">
-            <Input
-              value={form.quartos}
-              onChange={(e) => set({ quartos: e.target.value })}
-              inputMode="numeric"
-            />
-          </Field>
-          <Field label="Vagas">
-            <Input
-              value={form.vagas}
-              onChange={(e) => set({ vagas: e.target.value })}
-              inputMode="numeric"
-            />
-          </Field>
-          <Field label="Área útil (m²)">
+        <div className="grid gap-4 sm:grid-cols-5">
+          <Field label="Área útil (m²)" required>
             <Input
               value={form.area_util}
               onChange={(e) => set({ area_util: e.target.value })}
               inputMode="decimal"
             />
           </Field>
-          <Field label="Matrícula">
+          <Field label="Quartos">
             <Input
-              value={form.registry_number}
-              onChange={(e) => set({ registry_number: e.target.value })}
-              className="font-mono"
+              value={form.bedrooms}
+              onChange={(e) => set({ bedrooms: e.target.value })}
+              inputMode="numeric"
+            />
+          </Field>
+          <Field label="Suítes">
+            <Input
+              value={form.suites}
+              onChange={(e) => set({ suites: e.target.value })}
+              inputMode="numeric"
+            />
+          </Field>
+          <Field label="Banheiros">
+            <Input
+              value={form.bathrooms}
+              onChange={(e) => set({ bathrooms: e.target.value })}
+              inputMode="numeric"
+            />
+          </Field>
+          <Field label="Vagas">
+            <Input
+              value={form.parking_spots}
+              onChange={(e) => set({ parking_spots: e.target.value })}
+              inputMode="numeric"
             />
           </Field>
         </div>
+
+        <fieldset className="rounded-md border border-line bg-sunken px-4 py-3">
+          <legend className="px-1 text-[12px] text-muted">Perfil do imóvel</legend>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <TriToggle
+              label="Aceita pet"
+              value={form.pet_allowed}
+              onChange={(v) => set({ pet_allowed: v })}
+            />
+            <TriToggle
+              label="Aceita república"
+              value={form.republic_allowed}
+              onChange={(v) => set({ republic_allowed: v })}
+            />
+            <TriToggle
+              label="Área de lazer"
+              value={form.has_leisure_area}
+              onChange={(v) => set({ has_leisure_area: v })}
+            />
+          </div>
+        </fieldset>
+
+        <Field label="Matrícula" className="sm:max-w-xs">
+          <Input
+            value={form.registry_number}
+            onChange={(e) => set({ registry_number: e.target.value })}
+            className="font-mono"
+          />
+        </Field>
 
         <div className="grid gap-4 sm:grid-cols-4">
           <Field label="CEP">
@@ -456,4 +500,48 @@ export function PropertyFormDialog({
 
 export function statusTone(status: PropertyStatus) {
   return PROPERTY_STATUS[status];
+}
+
+/**
+ * Três estados: sim / não / não informado. Null é o padrão do cadastro, para
+ * não afirmar o que a equipe ainda não confirmou com o proprietário.
+ */
+function TriToggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean | null;
+  onChange: (v: boolean | null) => void;
+}) {
+  const options: { v: boolean | null; label: string }[] = [
+    { v: true, label: "Sim" },
+    { v: false, label: "Não" },
+    { v: null, label: "—" },
+  ];
+  return (
+    <div>
+      <span className="mb-1 block text-[12.5px] text-ink-soft">{label}</span>
+      <div className="inline-flex overflow-hidden rounded-md border border-line bg-surface">
+        {options.map((o) => {
+          const active = value === o.v;
+          return (
+            <button
+              key={String(o.v)}
+              type="button"
+              onClick={() => onChange(o.v)}
+              className={
+                active
+                  ? "px-3 py-1.5 text-[12.5px] font-medium bg-[var(--brand-primary)] text-white"
+                  : "px-3 py-1.5 text-[12.5px] text-ink-soft hover:bg-sunken"
+              }
+            >
+              {o.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

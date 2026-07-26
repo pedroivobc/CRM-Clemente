@@ -29,7 +29,11 @@ async def _anunciavel(api) -> dict:
                 "title": "Apartamento 2 quartos em Lourdes com ótima localização",
                 "description": DESCRICAO,
                 "sale_price": "199000.00",
-                "features": {"quartos": 2, "vagas": 1},
+                "iptu_amount": "1200.00",
+                "area_util": "68.00",
+                "bedrooms": 2,
+                "bathrooms": 1,
+                "parking_spots": 1,
                 "address": {"bairro": "Lourdes", "cidade": "Juiz de Fora", "uf": "MG"},
             },
         )
