@@ -71,10 +71,24 @@ requisição é aceita e **descartada** em silêncio). Responde `202`.
 contato e a chamada da vitrine, e expõem a `public_key` para copiar. A chave é
 gerada no provisionamento e não é editável por essa rota.
 
+## Widget embutível
+
+`widget.js` (~19 KB, sem dependências) consome esses endpoints e desenha a
+grade no site do cliente, isolado do CSS anfitrião por **Shadow DOM**:
+
+```html
+<script src="https://SEU-HOST/widget.js" data-imob="pub_..."></script>
+```
+
+Atributos opcionais: `data-target` (seletor onde montar), `data-purpose`
+(filtro inicial venda|locacao), `data-page-size`, `data-api`. Cores herdadas
+de `showcase.color_primary`. Detalhe abre em modal com galeria, botão de
+WhatsApp já com o código do imóvel, e formulário de lead com honeypot e
+roteamento por finalidade. Demo em `/widget-demo.html`.
+
 ## O que ainda falta (roadmap da vitrine)
 
-- O `widget.js` em si (o snippet já é exibido; falta o script que consome estes
-  endpoints e renderiza a grade no site do cliente).
-- Site pronto hospedado (subdomínio ou domínio próprio).
+- Site pronto hospedado (subdomínio ou domínio próprio) — a próxima saída.
 - Feed VRSync gerado destes mesmos dados para ZAP/VivaReal/OLX.
 - Endpoint para rotacionar a `public_key`.
+- Testes automáticos do widget (Playwright do jeito que fizemos as capturas).

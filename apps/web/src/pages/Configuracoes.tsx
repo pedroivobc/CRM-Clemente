@@ -343,7 +343,16 @@ function ShowcasePanel({ canEdit }: { canEdit: boolean }) {
               </pre>
               <p className="mt-1.5 text-[12px] text-muted">
                 Cole no HTML do site (WordPress, Wix ou próprio). Só aparecem os imóveis marcados
-                para publicação, com o endereço no nível que você escolher.
+                para publicação, com o endereço no nível que você escolher.{" "}
+                <a
+                  href="/widget-demo.html"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-[var(--brand-primary)] hover:underline"
+                >
+                  Ver funcionando
+                </a>
+                .
               </p>
             </div>
           </div>

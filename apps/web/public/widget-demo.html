@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demonstração da vitrine embutível</title>
+    <style>
+      body { margin: 0; font-family: Georgia, serif; color: #1a1a1a; }
+      .host-header { background: #1f4d8f; color: #fff; padding: 20px 24px; }
+      .host-header h1 { margin: 0; font-size: 20px; }
+      .host-nav { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+      main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+      main > h2 { font-family: Georgia, serif; }
+      .host-footer { background: #f0f0f0; padding: 24px; text-align: center; color: #666; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <!-- Tudo aqui simula o site do cliente (fonte serifada, cara de site próprio). -->
+    <header class="host-header">
+      <h1>Imobiliária Exemplo</h1>
+      <div class="host-nav">Início · Imóveis · Sobre · Contato</div>
+    </header>
+    <main>
+      <h2>Nossos imóveis</h2>
+      <p>Abaixo, a grade renderizada pelo widget — isolada do CSS deste site.</p>
+
+      <!-- É só isto que o cliente cola. A chave é substituída na demonstração. -->
+      <script src="/widget.js" data-imob="pub_demo"></script>
+    </main>
+    <footer class="host-footer">© Imobiliária Exemplo — site do cliente</footer>
+  </body>
+</html>

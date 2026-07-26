@@ -1,5 +1,36 @@
 # PROGRESS
 
+## Vitrine — widget embutível (2026-07-25) ✅
+
+Script `widget.js` que a imobiliária cola no HTML do site (WordPress, Wix ou
+próprio) e vê a grade dos seus imóveis renderizada, consumindo a API pública.
+Fecha a segunda das três saídas do cadastro: para quem já tem site, é só uma
+linha de código.
+
+### Entregue
+- `apps/web/public/widget.js` — vanilla, ~19 KB, sem dependências, isolado do
+  CSS anfitrião por **Shadow DOM** (o CSS do site não vaza para o widget e
+  vice-versa).
+- Filtros (finalidade, tipo, bairro, teto de preço) e ordenação (recentes,
+  menor/maior preço, maior área) montados a partir das facetas devolvidas por
+  `/showcase`. Paginação "carregar mais". Cor primária herdada da marca do
+  tenant.
+- Detalhe em modal: galeria com scroll horizontal, ficha, botão de WhatsApp
+  já com o código do imóvel na mensagem, formulário de lead com honeypot e
+  roteamento por finalidade (venda→vendas, locação→locação).
+- Página de demonstração em `apps/web/public/widget-demo.html` — simula um
+  site de terceiro (fonte serifada, cabeçalho próprio) e mostra o widget
+  isolado. Link "Ver funcionando" na aba Vitrine e API das Configurações.
+- Proxy dev do Vite mapeia `/public` para a API.
+
+### Verificação
+- Grade, detalhe e mobile conferidos por captura, sem erros de console.
+- Medição direta pelo Playwright confirma o sheet centralizado em 860 px
+  quando a viewport tem 1200 px; o resto do teste visual da coisa aqui foi
+  ilusão de escala em captura 2×.
+
+---
+
 ## Vitrine — API pública de imóveis (2026-07-25) ✅
 
 A primeira das três saídas do cadastro: uma API de leitura, sem login, que o
