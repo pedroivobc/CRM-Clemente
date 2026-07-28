@@ -161,3 +161,90 @@ async def rentals_dashboard(
             for s in funil
         ],
     }
+
+
+@router.get("/ranking")
+async def rentals_ranking(
+    db: DbDep,
+    days: int = 30,
+    user: CurrentUser = Depends(require_permission("locacao", "view")),
+) -> dict:
+    """Ranking do time de locação no período (padrão: últimos 30 dias).
+
+    Sem `assigned_to` no contrato, o corretor é identificado pelo lead que
+    originou. Métricas: leads recebidos, visitas realizadas, leads ganhos e
+    taxa de conversão. Tendência compara com o período anterior de mesmo
+    tamanho.
+    """
+    period = max(1, min(days, 365))
+    rows = (
+        (
+            await db.execute(
+                text(
+                    """
+                    with periodo as (
+                      select
+                        current_date - :days as ini,
+                        current_date as fim,
+                        current_date - (:days * 2) as ini_prev,
+                        current_date - :days as fim_prev
+                    )
+                    select
+                      u.id as user_id,
+                      u.full_name as corretor,
+                      count(distinct l.id) filter (
+                        where l.created_at::date between p.ini and p.fim
+                      ) as leads,
+                      count(distinct v.id) filter (
+                        where v.scheduled_at::date between p.ini and p.fim
+                      ) as visitas,
+                      count(distinct l.id) filter (
+                        where l.status = 'ganho'
+                          and l.closed_at::date between p.ini and p.fim
+                      ) as ganhos,
+                      count(distinct l.id) filter (
+                        where l.status = 'ganho'
+                          and l.closed_at::date between p.ini_prev and p.fim_prev
+                      ) as ganhos_prev
+                    from core.users u
+                    cross join periodo p
+                    left join rentals.leads l on l.assigned_to = u.id
+                    left join rentals.visits v on v.lead_id = l.id
+                    where u.status = 'active'
+                    group by u.id, u.full_name
+                    having count(distinct l.id) filter (
+                             where l.created_at::date between p.ini and p.fim
+                           ) > 0
+                        or count(distinct l.id) filter (
+                             where l.status = 'ganho'
+                               and l.closed_at::date between p.ini and p.fim
+                           ) > 0
+                    order by ganhos desc, leads desc
+                    limit 20
+                    """
+                ),
+                {"days": period},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    ranking = []
+    for r in rows:
+        leads = int(r["leads"] or 0)
+        ganhos = int(r["ganhos"] or 0)
+        prev = int(r["ganhos_prev"] or 0)
+        conv = round(ganhos / leads * 100, 1) if leads > 0 else None
+        ranking.append(
+            {
+                "user_id": str(r["user_id"]),
+                "corretor": r["corretor"],
+                "leads": leads,
+                "visitas": int(r["visitas"] or 0),
+                "ganhos": ganhos,
+                "conversao": conv,
+                "ganhos_prev": prev,
+                "delta_ganhos": ganhos - prev,
+            }
+        )
+    return {"periodo_dias": period, "items": ranking}

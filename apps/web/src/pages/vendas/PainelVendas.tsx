@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { TeamRanking } from "@/components/TeamRanking";
 import { Card, CardHeader, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
@@ -76,34 +77,10 @@ export function PainelVendas() {
             </dl>
           </Card>
 
-          {data.ranking_corretores.length > 0 ? (
-            <Card>
-              <CardHeader title="Corretores" hint="Por vendas fechadas no período" />
-              <ol className="divide-y divide-line-soft">
-                {data.ranking_corretores.map((item, index) => (
-                  <li
-                    key={item.corretor}
-                    className="flex items-center gap-3 px-5 py-2.5"
-                  >
-                    <span className="w-4 shrink-0 font-mono text-[12px] text-muted">
-                      {index + 1}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-ink">
-                      {item.corretor}
-                    </span>
-                    <span className="font-mono text-[12px] text-muted">
-                      {item.vendas} {item.vendas === 1 ? "venda" : "vendas"}
-                    </span>
-                    <span className="w-24 shrink-0 text-right font-mono text-[12.5px] tabular text-ink-soft">
-                      {money(item.comissao)}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </Card>
-          ) : null}
         </div>
       </div>
+
+      <TeamRanking kind="sales" />
     </div>
   );
 }

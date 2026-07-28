@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowRight, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { TeamRanking } from "@/components/TeamRanking";
 import { Badge, Card, CardHeader, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { money } from "@/lib/format";
@@ -126,6 +127,8 @@ export function PainelLocacao() {
           </Card>
         </div>
       </div>
+
+      <TeamRanking kind="rentals" />
     </div>
   );
 }

@@ -1184,6 +1184,106 @@ _DEAL_SELECT = """
 """
 
 
+@router.get("/ranking")
+async def sales_ranking(
+    db: DbDep,
+    days: int = 30,
+    user: CurrentUser = Depends(require_permission("vendas", "view")),
+) -> dict:
+    """Ranking da equipe de vendas no período (padrão: últimos 30 dias).
+
+    Cada linha traz o que o gerente quer ver de golpe: leads recebidos,
+    propostas enviadas, negócios fechados, comissão gerada e taxa de
+    conversão (fechados/leads). A tendência compara com o período anterior
+    do mesmo tamanho — assim o "dobrei este mês" ou "caí pela metade" fica
+    óbvio.
+    """
+    period = max(1, min(days, 365))
+    rows = (
+        (
+            await db.execute(
+                text(
+                    """
+                    with periodo as (
+                      select
+                        current_date - :days as ini,
+                        current_date         as fim,
+                        current_date - (:days * 2) as ini_prev,
+                        current_date - :days as fim_prev
+                    )
+                    select
+                      u.id as user_id,
+                      u.full_name as corretor,
+                      count(distinct l.id) filter (
+                        where l.created_at::date between p.ini and p.fim
+                      ) as leads,
+                      count(distinct pr.id) filter (
+                        where pr.created_at::date between p.ini and p.fim
+                      ) as propostas,
+                      count(distinct d.id) filter (
+                        where d.closed_at between p.ini and p.fim
+                          and d.status <> 'cancelado'
+                      ) as vendas,
+                      coalesce(sum(c.amount) filter (
+                        where d.closed_at between p.ini and p.fim
+                          and d.status <> 'cancelado'
+                      ), 0) as comissao,
+                      count(distinct d.id) filter (
+                        where d.closed_at between p.ini_prev and p.fim_prev
+                          and d.status <> 'cancelado'
+                      ) as vendas_prev
+                    from core.users u
+                    cross join periodo p
+                    left join sales.leads l on l.assigned_to = u.id
+                    left join sales.proposals pr on pr.lead_id = l.id
+                    left join sales.deals d on d.proposal_id = pr.id
+                    left join sales.commissions c
+                      on c.deal_id = d.id and c.user_id = u.id
+                      and c.beneficiary = 'seller_broker'
+                    where u.status = 'active'
+                    group by u.id, u.full_name
+                    having count(distinct l.id) filter (
+                             where l.created_at::date between p.ini and p.fim
+                           ) > 0
+                        or count(distinct d.id) filter (
+                             where d.closed_at between p.ini and p.fim
+                               and d.status <> 'cancelado'
+                           ) > 0
+                    order by vendas desc, comissao desc, leads desc
+                    limit 20
+                    """
+                ),
+                {"days": period},
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    ranking = []
+    for r in rows:
+        leads = int(r["leads"] or 0)
+        vendas = int(r["vendas"] or 0)
+        vendas_prev = int(r["vendas_prev"] or 0)
+        # Delta em pontos absolutos; o consumidor decide como formatar.
+        delta = vendas - vendas_prev
+        conv = round(vendas / leads * 100, 1) if leads > 0 else None
+        ranking.append(
+            {
+                "user_id": str(r["user_id"]),
+                "corretor": r["corretor"],
+                "leads": leads,
+                "propostas": int(r["propostas"] or 0),
+                "vendas": vendas,
+                "comissao": float(r["comissao"] or 0),
+                "conversao": conv,
+                "vendas_prev": vendas_prev,
+                "delta_vendas": delta,
+            }
+        )
+    return {"periodo_dias": period, "items": ranking}
+
+
 async def _default_pipeline(db) -> UUID:
     pipeline_id = (
         await db.execute(
