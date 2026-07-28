@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, PlayCircle, Receipt } from "lucide-react";
+import { Check, Copy, MessageCircle, PlayCircle, Receipt } from "lucide-react";
 import * as React from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
@@ -474,6 +474,68 @@ function SettleDialog({
   );
 }
 
+type MagicLinkResp = {
+  token: string;
+  url: string;
+  expires_at: string;
+  whatsapp_url: string | null;
+  phone: string | null;
+};
+
+/**
+ * Gera um link mágico e abre o WhatsApp do inquilino já com a mensagem
+ * pronta. É a via curta pra derrubar o telefone da recepção tocando pedindo
+ * 2ª via — o inquilino abre o link no celular sem precisar de senha.
+ */
+function SendByWhatsApp({ chargeId }: { chargeId: string }) {
+  const [copied, setCopied] = React.useState(false);
+  const mutation = useMutation({
+    mutationFn: () => api.post<MagicLinkResp>(`/billing/charges/${chargeId}/magic-link`),
+    onSuccess: (data) => {
+      if (data.whatsapp_url) {
+        window.open(data.whatsapp_url, "_blank", "noopener");
+      }
+    },
+  });
+  const data = mutation.data;
+
+  async function copyLink() {
+    if (!data?.url) return;
+    await navigator.clipboard.writeText(data.url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
+    <div className="rounded-md border border-line-soft bg-sunken px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[13px] font-medium text-ink">Enviar 2ª via para o inquilino</p>
+          <p className="text-[11.5px] text-muted">
+            Gera um link válido por 15 minutos e abre o WhatsApp com a mensagem pronta.
+          </p>
+        </div>
+        <Button size="sm" loading={mutation.isPending} onClick={() => mutation.mutate()}>
+          <MessageCircle />
+          {data ? "Reenviar" : "WhatsApp"}
+        </Button>
+      </div>
+
+      {data ? (
+        <div className="mt-3 flex items-center gap-2 rounded-md bg-surface p-2">
+          <code className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted">
+            {data.url}
+          </code>
+          <Button size="sm" variant="outline" onClick={copyLink}>
+            {copied ? <Check /> : <Copy />}
+            {copied ? "Copiado" : "Copiar link"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SecondCopyDialog({
   charge,
   onOpenChange,
@@ -544,6 +606,8 @@ function SecondCopyDialog({
             </div>
           </Field>
         ) : null}
+
+        {charge ? <SendByWhatsApp chargeId={charge.id} /> : null}
       </div>
     </Dialog>
   );

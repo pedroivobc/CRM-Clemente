@@ -7,6 +7,7 @@ import { Home } from "./pages/Home";
 import { Properties } from "./pages/Properties";
 import { PropertyDetail } from "./pages/PropertyDetail";
 import { Contact } from "./pages/Contact";
+import { SegundaVia } from "./pages/SegundaVia";
 
 // Injetamos a cor primária do tenant como variável CSS assim que o /showcase
 // responde, para que o site inteiro se pinte sozinho — não precisa build por
@@ -30,7 +31,13 @@ export function App() {
     error: null,
   });
 
+  // A 2ª via aberta pelo link mágico é auto-suficiente: puxa o branding
+  // do próprio payload e não precisa esperar o /showcase carregar. Deixamos
+  // ela sair antes de qualquer resolução de tenant.
+  const isMagic = typeof window !== "undefined" && window.location.pathname.startsWith("/2via/");
+
   React.useEffect(() => {
+    if (isMagic) return;
     (async () => {
       try {
         const key = await resolveKey();
@@ -43,7 +50,15 @@ export function App() {
         setState({ ctx: null, error: (e as Error).message });
       }
     })();
-  }, []);
+  }, [isMagic]);
+
+  if (isMagic) {
+    return (
+      <Routes>
+        <Route path="/2via/:token" element={<SegundaVia />} />
+      </Routes>
+    );
+  }
 
   if (state.error) {
     return (

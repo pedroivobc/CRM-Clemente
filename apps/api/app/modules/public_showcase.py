@@ -14,6 +14,7 @@ aberto: o widget roda no domínio do cliente, não no nosso.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from datetime import UTC
 from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
@@ -49,6 +50,140 @@ async def public_tenant_id(key: str) -> UUID:
     if tenant_id is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Vitrine não encontrada")
     return tenant_id
+
+
+class MagicChargeOut(BaseModel):
+    kind: str
+    tenant_display_name: str
+    tenant_color_primary: str | None
+    tenant_logo_url: str | None
+    tenant_whatsapp: str | None
+    charge: dict
+
+
+@router.get(
+    "/magic/{token}",
+    response_model=MagicChargeOut,
+    dependencies=[Depends(public_read_rate_limit)],
+)
+async def resolve_magic_link(token: str) -> MagicChargeOut:
+    """Resolve um link mágico (2ª via/extrato/recibo) sem exigir chave.
+
+    O token é único no sistema. Aqui autenticamos o cliente final por posse
+    do link: se o token existe, não expirou e o alvo continua válido, o
+    payload da 2ª via sai com o branding do tenant para a página renderizar
+    igual ao site oficial.
+    """
+    async with platform_connection() as conn:
+        link = (
+            (
+                await conn.execute(
+                    text(
+                        """
+                        select ml.tenant_id, ml.target_type, ml.target_id,
+                               ml.expires_at, ml.used_at
+                        from core.magic_links ml
+                        where ml.token = :token
+                        """
+                    ),
+                    {"token": token},
+                )
+            )
+            .mappings()
+            .first()
+        )
+    if link is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Link inválido")
+    from datetime import datetime  # noqa: PLC0415
+
+    if link["expires_at"] < datetime.now(UTC):
+        raise HTTPException(status.HTTP_410_GONE, "Link expirou")
+
+    async with tenant_connection(link["tenant_id"]) as db:
+        # Marca o primeiro uso — não bloqueia reuso, só registra.
+        if link["used_at"] is None:
+            await db.execute(
+                text("update core.magic_links set used_at = now() where token = :token"),
+                {"token": token},
+            )
+
+        branding = (
+            (
+                await db.execute(
+                    text(
+                        "select display_name, color_primary, logo_path "
+                        "from core.tenant_branding"
+                    )
+                )
+            )
+            .mappings()
+            .first()
+        )
+        contact = (
+            (
+                await db.execute(
+                    text("select whatsapp from core.tenant_public")
+                )
+            )
+            .mappings()
+            .first()
+        )
+
+        target_type = link["target_type"]
+        payload: dict = {}
+        if target_type == "charge":
+            charge_row = (
+                (
+                    await db.execute(
+                        text(
+                            """
+                            select ch.id, ch.competence, ch.due_date, ch.gross_amount,
+                                   ch.boleto_line, ch.boleto_url, ch.pix_copy_paste,
+                                   ch.pix_qrcode, ch.status
+                            from rentals.charges ch
+                            where ch.id = :cid
+                            """
+                        ),
+                        {"cid": str(link["target_id"])},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            if charge_row is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Cobrança não encontrada")
+            if charge_row["status"] in ("pago", "baixado_manual", "cancelado"):
+                raise HTTPException(
+                    status.HTTP_410_GONE, "Esta cobrança já foi encerrada"
+                )
+            payload = {
+                "id": str(charge_row["id"]),
+                "competence": charge_row["competence"].isoformat(),
+                "due_date": charge_row["due_date"].isoformat(),
+                "amount": str(charge_row["gross_amount"]),
+                "boleto_line": charge_row["boleto_line"],
+                "boleto_url": charge_row["boleto_url"],
+                "pix_copy_paste": charge_row["pix_copy_paste"],
+                "pix_qrcode": charge_row["pix_qrcode"],
+            }
+        else:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, f"Alvo não suportado ainda: {target_type}"
+            )
+
+    storage = get_storage()
+    return MagicChargeOut(
+        kind=target_type,
+        tenant_display_name=branding["display_name"] if branding else "Imobiliária",
+        tenant_color_primary=branding["color_primary"] if branding else None,
+        tenant_logo_url=(
+            storage.public_url(BUCKET_BRANDING, branding["logo_path"])
+            if branding and branding["logo_path"]
+            else None
+        ),
+        tenant_whatsapp=contact["whatsapp"] if contact else None,
+        charge=payload,
+    )
 
 
 @router.get("/by-host", response_model=dict, dependencies=[Depends(public_read_rate_limit)])

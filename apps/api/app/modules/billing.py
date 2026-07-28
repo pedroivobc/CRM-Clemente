@@ -7,8 +7,10 @@ chamada ao gateway e as regras de fluxo (o que pode ser feito quando).
 from __future__ import annotations
 
 import calendar
-from datetime import date, datetime
+import secrets
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from urllib.parse import quote_plus
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,6 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.core.audit import record_audit
+from app.core.config import get_settings
 from app.core.deps import DbDep, require_module, require_permission
 from app.core.security import CurrentUser
 from app.domain.billing import (
@@ -376,6 +379,132 @@ async def get_charge(
     user: CurrentUser = Depends(require_permission("financeiro", "view")),
 ) -> ChargeOut:
     return await _get_charge(db, charge_id)
+
+
+class MagicLinkOut(BaseModel):
+    token: str
+    url: str
+    expires_at: datetime
+    whatsapp_url: str | None
+    phone: str | None
+
+
+@router.post("/charges/{charge_id}/magic-link", response_model=MagicLinkOut)
+async def create_charge_magic_link(
+    charge_id: UUID,
+    db: DbDep,
+    minutes: int = 15,
+    user: CurrentUser = Depends(require_permission("financeiro", "edit")),
+) -> MagicLinkOut:
+    """Gera um link mágico (2ª via sem senha) para enviar ao inquilino no WhatsApp.
+
+    O link vive uns minutos e leva a uma página pública com valor,
+    vencimento, linha digitável e Pix — o inquilino não precisa criar
+    conta, decorar senha nem pedir para a imobiliária. É o "vale por
+    hoje" que reduz o telefone da recepção tocando.
+    """
+    charge = await _get_charge(db, charge_id)
+    if charge.status in ("pago", "baixado_manual", "cancelado"):
+        raise HTTPException(status.HTTP_409_CONFLICT, "Esta cobrança não está em aberto")
+
+    minutes = max(5, min(minutes, 120))
+    token = secrets.token_urlsafe(24)
+    expires_at = datetime.now(UTC) + timedelta(minutes=minutes)
+    await db.execute(
+        text(
+            """
+            insert into core.magic_links
+                (tenant_id, token, target_type, target_id, created_by, expires_at)
+            values (:tid, :token, 'charge', :target, :uid, :exp)
+            """
+        ),
+        {
+            "tid": str(user.tenant_id),
+            "token": token,
+            "target": str(charge_id),
+            "uid": str(user.id),
+            "exp": expires_at,
+        },
+    )
+
+    # Contato e domínio do tenant para montar o link certo do jeito do inquilino.
+    tenant_row = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select t.subdomain, t.custom_domain, tp.whatsapp,
+                           (select phone from crm.clients c
+                              join properties.property_owners po on po.client_id = c.id
+                              -- fallback: telefone do locatário do contrato
+                              limit 0) as ignore
+                    from core.tenants t
+                    left join core.tenant_public tp on tp.tenant_id = t.id
+                    where t.id = :tid
+                    """
+                ),
+                {"tid": str(user.tenant_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    site_url = _site_base_url(tenant_row)
+    full_url = f"{site_url}/2via/{token}"
+
+    # Telefone: tenta primeiro o locatário do contrato desta cobrança.
+    tenant_phone = (
+        await db.execute(
+            text(
+                """
+                select c.phone
+                from rentals.charges ch
+                join rentals.contracts co on co.id = ch.contract_id
+                join rentals.contract_parties cp on cp.contract_id = co.id
+                join crm.clients c on c.id = cp.client_id
+                where ch.id = :cid and cp.role = 'locatario'
+                order by cp.created_at
+                limit 1
+                """
+            ),
+            {"cid": str(charge_id)},
+        )
+    ).scalar()
+
+    wa_url: str | None = None
+    if tenant_phone:
+        digits = "".join(ch for ch in tenant_phone if ch.isdigit())
+        if digits and not digits.startswith("55"):
+            digits = "55" + digits
+        message = (
+            f"Olá! Aqui está a 2ª via do aluguel referente a "
+            f"{charge.competence.strftime('%m/%Y')}:\n{full_url}\n"
+            f"Vencimento {charge.due_date.strftime('%d/%m/%Y')} — "
+            f"valor R$ {charge.gross_amount}. Link válido por {minutes} minutos."
+        )
+        wa_url = f"https://wa.me/{digits}?text={quote_plus(message)}"
+
+    await record_audit(db, user, "charge", charge_id, "update")
+    return MagicLinkOut(
+        token=token,
+        url=full_url,
+        expires_at=expires_at,
+        whatsapp_url=wa_url,
+        phone=tenant_phone,
+    )
+
+
+def _site_base_url(tenant_row) -> str:
+    """URL base da vitrine deste tenant — custom_domain quando houver, senão
+    subdomínio no ``base_domain`` configurado. Em dev sai http; em produção
+    https."""
+    settings = get_settings()
+    scheme = "https" if settings.is_production else "http"
+    if tenant_row and tenant_row["custom_domain"]:
+        return f"{scheme}://{tenant_row['custom_domain']}"
+    if tenant_row and tenant_row["subdomain"]:
+        return f"{scheme}://{tenant_row['subdomain']}.{settings.base_domain}"
+    return f"{scheme}://{settings.base_domain}"
 
 
 @router.get("/charges/{charge_id}/second-copy", response_model=dict)

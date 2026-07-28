@@ -195,6 +195,59 @@ section.section h2 { margin: 0 0 24px; font-size: 24px; font-weight: 700; }
 
 .honeypot { position: absolute; left: -9999px; }
 
+/* ── 2ª via por link mágico ────────────────────────────────────────────── */
+.second-via {
+  min-height: 100vh; background: linear-gradient(180deg, var(--sunken), #fff);
+  padding: 24px 16px; display: grid; place-items: start center;
+}
+.second-via .sv-card {
+  width: 100%; max-width: 520px; background: var(--bg);
+  border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(20, 24, 31, 0.06); padding: 28px 24px 24px;
+}
+.second-via .sv-loading { color: var(--muted); padding: 60px 0; }
+.second-via .sv-empty h1 { margin: 0 0 8px; }
+.second-via .sv-empty p { color: var(--muted); }
+
+.sv-header {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 24px;
+  padding-bottom: 20px; border-bottom: 1px solid var(--line-soft);
+}
+.sv-header img {
+  height: 44px; width: auto; max-width: 120px; object-fit: contain;
+}
+.sv-header .sv-badge {
+  width: 44px; height: 44px; border-radius: 12px; background: var(--brand);
+  color: var(--brand-ink); display: grid; place-items: center; font-weight: 800; font-size: 15px;
+}
+.sv-eyebrow { color: var(--muted); font-size: 12px; margin: 0 0 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+.sv-header h1 { margin: 0; font-size: 20px; }
+
+.sv-numbers {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin: 0 0 20px;
+}
+.sv-numbers .sv-amount { grid-column: 1 / -1; }
+.sv-numbers > div dt { color: var(--muted); font-size: 12px; margin: 0 0 2px; }
+.sv-numbers > div dd { margin: 0; font-weight: 600; font-size: 16px; color: var(--ink); }
+.sv-numbers .sv-amount dd { font-size: 34px; line-height: 1.1; color: var(--brand); font-weight: 700; }
+
+.sv-block { margin: 0 0 20px; }
+.sv-label { color: var(--muted); font-size: 12px; margin: 0 0 6px; }
+.sv-inline { display: flex; gap: 8px; align-items: stretch; }
+.sv-inline code {
+  flex: 1; min-width: 0; padding: 10px 12px; background: var(--sunken);
+  border-radius: 8px; font: 500 12px/1.5 ui-monospace, monospace; color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.sv-btn {
+  background: var(--brand); color: var(--brand-ink); border: none;
+  border-radius: 8px; padding: 0 16px; font-weight: 600; font-size: 13.5px; cursor: pointer;
+  white-space: nowrap;
+}
+.sv-link { color: var(--brand); font-size: 13px; }
+.sv-hint { color: var(--soft); font-size: 13.5px; margin: 20px 0 0; }
+.sv-fine { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+
 /* ── Simulador MCMV ────────────────────────────────────────────────────── */
 .mcmv {
   margin-top: 28px; padding: 20px 22px 24px;
