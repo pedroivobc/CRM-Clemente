@@ -59,7 +59,9 @@
 
   var state = {
     config: null,
-    filters: { purpose: INITIAL_PURPOSE, kind: "", neighborhood: "", max_price: "", sort: "recentes" },
+    filters: {
+      purpose: INITIAL_PURPOSE, kind: "", neighborhood: "", max_price: "", mcmv: "", sort: "recentes",
+    },
     page: 1,
     total: 0,
     items: [],
@@ -91,6 +93,7 @@
       ".cover{aspect-ratio:4/3;background:var(--sunken) center/cover no-repeat;position:relative}" +
       ".cover .tag{position:absolute;top:10px;left:10px;background:#fff;color:var(--soft);" +
       "font:600 11px/1 ui-monospace,monospace;padding:5px 8px;border-radius:6px;letter-spacing:.03em}" +
+      ".cover .tag.mcmv{left:auto;right:10px;background:var(--brand);color:#fff;letter-spacing:.04em}" +
       ".cover .noimg{display:grid;place-items:center;height:100%;color:var(--muted);font-size:12px}" +
       ".body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1}" +
       ".ttl{font-size:14.5px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;" +
@@ -162,6 +165,16 @@
     var purposes = (f.purposes || []).map(function (p) { return opt(p, PURPOSES[p] || p, state.filters.purpose === p); });
     var kinds = (f.kinds || []).map(function (k) { return opt(k, kindLabel(k), state.filters.kind === k); });
     var hoods = (f.neighborhoods || []).map(function (n) { return opt(n, n, state.filters.neighborhood === n); });
+    var mcmvFacetas = (f.mcmv_faixas || []).map(function (m) {
+      return opt(m, "MCMV " + m.split("_")[1], state.filters.mcmv === m);
+    });
+    var mcmvBlock = mcmvFacetas.length
+      ? '<div class="fld"><label>MCMV</label><select data-k="mcmv">' +
+          opt("", "Todos", !state.filters.mcmv) +
+          opt("qualquer", "Qualquer faixa", state.filters.mcmv === "qualquer") +
+          mcmvFacetas.join("") +
+        "</select></div>"
+      : "";
 
     $(".bar").innerHTML =
       '<div class="fld"><label>Finalidade</label><select data-k="purpose">' +
@@ -172,6 +185,7 @@
         opt("", "Todos", !state.filters.neighborhood) + hoods.join("") + "</select></div>" +
       '<div class="fld"><label>Até (R$)</label><input data-k="max_price" inputmode="numeric" ' +
         'placeholder="sem limite" value="' + esc(state.filters.max_price) + '"></div>' +
+      mcmvBlock +
       '<div class="fld"><label>Ordenar</label><select data-k="sort">' +
         opt("recentes", "Mais recentes", state.filters.sort === "recentes") +
         opt("menor_preco", "Menor preço", state.filters.sort === "menor_preco") +
@@ -213,10 +227,14 @@
   function card(p) {
     var el = document.createElement("div");
     el.className = "card";
+    var mcmvTag = p.mcmv_faixa
+      ? '<span class="tag mcmv">MCMV ' + esc(p.mcmv_faixa.split("_")[1]) + "</span>"
+      : "";
     var cover = p.cover_url
       ? '<div class="cover" style="background-image:url(' + JSON.stringify(p.cover_url) + ')">' +
-        '<span class="tag">' + esc(p.code) + "</span></div>"
-      : '<div class="cover"><span class="tag">' + esc(p.code) + '</span><div class="noimg">sem foto</div></div>';
+        '<span class="tag">' + esc(p.code) + "</span>" + mcmvTag + "</div>"
+      : '<div class="cover"><span class="tag">' + esc(p.code) + "</span>" + mcmvTag +
+        '<div class="noimg">sem foto</div></div>';
     el.innerHTML =
       cover +
       '<div class="body"><div class="ttl">' + esc(p.title) + "</div>" +
@@ -330,6 +348,7 @@
     if (f.kind) q.push("kind=" + encodeURIComponent(f.kind));
     if (f.neighborhood) q.push("neighborhood=" + encodeURIComponent(f.neighborhood));
     if (f.max_price) q.push("max_price=" + encodeURIComponent(f.max_price.replace(/[^\d]/g, "")));
+    if (f.mcmv) q.push("mcmv=" + encodeURIComponent(f.mcmv));
     return q.join("&");
   }
 

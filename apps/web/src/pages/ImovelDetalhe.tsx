@@ -28,7 +28,13 @@ import {
 } from "@/components/ui";
 import { api } from "@/lib/api";
 import { date, money, shortAddress } from "@/lib/format";
-import { ADDRESS_VISIBILITY, PROPERTY_KINDS, PROPERTY_STATUS, PURPOSES } from "@/lib/labels";
+import {
+  ADDRESS_VISIBILITY,
+  MCMV_FAIXAS,
+  PROPERTY_KINDS,
+  PROPERTY_STATUS,
+  PURPOSES,
+} from "@/lib/labels";
 import type { Photo, Property, PropertyStatus } from "@/lib/types";
 
 export function ImovelDetalhe() {
@@ -173,6 +179,15 @@ export function ImovelDetalhe() {
                   >
                     Abrir
                   </a>
+                ) : (
+                  "—"
+                )}
+              </InfoRow>
+              <InfoRow label="MCMV">
+                {property.mcmv_faixa ? (
+                  <span className="rounded bg-[var(--brand-primary)]/10 px-1.5 py-0.5 text-[11.5px] font-semibold text-[var(--brand-primary)]">
+                    {MCMV_FAIXAS[property.mcmv_faixa].label}
+                  </span>
                 ) : (
                   "—"
                 )}

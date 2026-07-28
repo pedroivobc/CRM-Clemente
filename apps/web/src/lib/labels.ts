@@ -41,6 +41,16 @@ export const PROPERTY_KINDS: Record<string, string> = {
   outro: "Outro",
 };
 
+export const MCMV_FAIXAS: Record<
+  "faixa_1" | "faixa_2" | "faixa_3" | "faixa_4",
+  { label: string; hint: string }
+> = {
+  faixa_1: { label: "Faixa 1", hint: "Renda até R$ 2.850 · imóvel até R$ 264 mil" },
+  faixa_2: { label: "Faixa 2", hint: "Renda até R$ 4.700 · imóvel até R$ 264 mil" },
+  faixa_3: { label: "Faixa 3", hint: "Renda até R$ 8.600 · imóvel até R$ 350 mil" },
+  faixa_4: { label: "Faixa 4", hint: "Renda até R$ 12.000 · imóvel até R$ 500 mil" },
+};
+
 export const ADDRESS_VISIBILITY: Record<string, { label: string; hint: string }> = {
   completo: { label: "Endereço completo", hint: "Rua, número e complemento aparecem" },
   rua: { label: "Só a rua", hint: "Mostra a rua, esconde o número" },

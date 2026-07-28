@@ -13,6 +13,9 @@ export function PropertyCard({ item }: { item: PublicCard }) {
         style={item.cover_url ? { backgroundImage: `url(${item.cover_url})` } : undefined}
       >
         <span className="tag">{item.code}</span>
+        {item.mcmv_faixa ? (
+          <span className="tag mcmv">MCMV {item.mcmv_faixa.split("_")[1]}</span>
+        ) : null}
         {!item.cover_url ? <div className="noimg">sem foto</div> : null}
       </div>
       <div className="body">

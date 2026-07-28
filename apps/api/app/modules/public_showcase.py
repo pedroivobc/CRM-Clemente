@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from app.core.db import platform_connection, tenant_connection
 from app.core.ratelimit import public_lead_rate_limit, public_read_rate_limit
 from app.domain.feeds import build_chavesnamao_feed, build_vrsync_feed
+from app.domain.mcmv import faixa_por_renda, simular
 from app.domain.publishing import public_address, video_embed_url, whatsapp_link
 from app.services.storage import BUCKET_BRANDING, BUCKET_PROPERTY_PHOTOS, get_storage
 
@@ -86,6 +87,7 @@ class Facets(BaseModel):
     neighborhoods: list[str]
     price_min: Decimal | None
     price_max: Decimal | None
+    mcmv_faixas: list[str] = Field(default_factory=list)
 
 
 class ShowcaseConfig(BaseModel):
@@ -118,6 +120,7 @@ class PublicCard(BaseModel):
     pet_allowed: bool | None
     republic_allowed: bool | None
     has_leisure_area: bool | None
+    mcmv_faixa: str | None
     cover_url: str | None
     whatsapp_url: str | None
 
@@ -136,6 +139,9 @@ class PublicDetail(PublicCard):
     video_url: str | None
     # Embed pronto para <iframe> (YouTube/Vimeo), quando video_url reconhecido.
     video_embed: str | None
+    # Parcela pré-calculada com a faixa cadastrada e a taxa vigente. Serve
+    # de placeholder na página; o visitante refina com renda no simulador.
+    mcmv_parcela_estimada: Decimal | None = None
     photos: list[str] = Field(default_factory=list)
 
 
@@ -146,6 +152,9 @@ class LeadIn(BaseModel):
     message: str | None = Field(None, max_length=1000)
     interest: str | None = Field(None, pattern="^(venda|locacao)$")
     property_code: str | None = None
+    # Renda declarada — quando o visitante usa o simulador MCMV. Vai para o
+    # CRM para o corretor já saber qual faixa buscar.
+    renda_familiar_bruta: Decimal | None = None
     # Campo-armadilha: humano não vê, bot preenche. Vindo cheio, descartamos.
     website: str | None = None
 
@@ -194,6 +203,7 @@ async def showcase(db: PublicDb) -> ShowcaseConfig:
                       array_remove(array_agg(distinct kind), null) as kinds,
                       array_remove(array_agg(distinct address->>'cidade'), null) as cities,
                       array_remove(array_agg(distinct address->>'bairro'), null) as neighborhoods,
+                      array_remove(array_agg(distinct mcmv_faixa), null) as mcmv_faixas,
                       min(coalesce(sale_price, rent_price)) as price_min,
                       max(coalesce(sale_price, rent_price)) as price_max
                     from properties.properties
@@ -228,6 +238,7 @@ async def showcase(db: PublicDb) -> ShowcaseConfig:
             neighborhoods=sorted(facets["neighborhoods"] or []),
             price_min=facets["price_min"],
             price_max=facets["price_max"],
+            mcmv_faixas=sorted(facets["mcmv_faixas"] or []),
         ),
     )
 
@@ -258,6 +269,8 @@ async def list_public_properties(
     pet_allowed: bool | None = None,
     republic_allowed: bool | None = None,
     has_leisure_area: bool | None = None,
+    mcmv: str | None = Query(None, pattern="^(faixa_1|faixa_2|faixa_3|faixa_4|qualquer)$"),
+    renda: Decimal | None = None,
     sort: str = Query("recentes"),
     page: int = Query(1, ge=1),
     page_size: int = Query(12, ge=1, le=48),
@@ -296,6 +309,21 @@ async def list_public_properties(
         filters.append("p.republic_allowed is true")
     if has_leisure_area:
         filters.append("p.has_leisure_area is true")
+    # MCMV: "qualquer" mostra os imóveis que estão em alguma faixa; uma faixa
+    # específica filtra por ela. Se veio renda mas não faixa, deduz da renda.
+    if mcmv == "qualquer":
+        filters.append("p.mcmv_faixa is not null")
+    elif mcmv:
+        filters.append("p.mcmv_faixa = :mcmv")
+        params["mcmv"] = mcmv
+    elif renda is not None:
+        deduzida = faixa_por_renda(renda)
+        if deduzida:
+            filters.append("p.mcmv_faixa = :mcmv")
+            params["mcmv"] = deduzida
+        else:
+            # Renda fora do teto do programa — mostra vazio, não vale filtrar.
+            filters.append("false")
 
     where = " and ".join(filters)
     order = SORTS.get(sort, SORTS["recentes"])
@@ -369,6 +397,15 @@ async def public_property(db: PublicDb, slug: str) -> PublicDetail:
 
     whatsapp = await _tenant_whatsapp(db)
     card = _card(row, whatsapp, photos[0] if photos else None)
+
+    # Pré-calcula a parcela cheia (prazo máximo, entrada mínima) só quando o
+    # imóvel está numa faixa e tem preço — para aparecer estático no card.
+    parcela_est: Decimal | None = None
+    if row["mcmv_faixa"] and row["sale_price"] and row["sale_price"] > 0:
+        parcela_est = simular(
+            valor_imovel=row["sale_price"], faixa=row["mcmv_faixa"]
+        ).parcela_estimada
+
     return PublicDetail(
         **card.model_dump(),
         description=row["description"],
@@ -383,7 +420,91 @@ async def public_property(db: PublicDb, slug: str) -> PublicDetail:
         tour_url=row["tour_url"],
         video_url=row["video_url"],
         video_embed=video_embed_url(row["video_url"]),
+        mcmv_parcela_estimada=parcela_est,
         photos=[storage.public_url(BUCKET_PROPERTY_PHOTOS, p) for p in photos],
+    )
+
+
+class McmvSim(BaseModel):
+    faixa: str
+    faixa_nome: str
+    valor_imovel: Decimal
+    entrada: Decimal
+    financiado: Decimal
+    prazo_meses: int
+    taxa_anual: Decimal
+    parcela_estimada: Decimal
+    renda_minima_sugerida: Decimal
+    cabe_na_renda: bool
+
+
+@router.get(
+    "/{key}/properties/{slug}/mcmv",
+    response_model=McmvSim,
+    dependencies=[Depends(public_read_rate_limit)],
+)
+async def simulate_public_mcmv(
+    db: PublicDb,
+    slug: str,
+    faixa: str | None = Query(
+        None, pattern="^(faixa_1|faixa_2|faixa_3|faixa_4)$"
+    ),
+    entrada: Decimal | None = None,
+    prazo_meses: int | None = Query(None, ge=12, le=420),
+    renda: Decimal | None = None,
+) -> McmvSim:
+    """Simulação de parcela do MCMV para o imóvel publicado.
+
+    Endpoint público — o visitante da vitrine informa a renda e vê se cabe
+    no bolso sem precisar falar com corretor. Sem faixa e sem renda,
+    usa a faixa do cadastro do imóvel.
+    """
+    row = (
+        (
+            await db.execute(
+                text(
+                    "select sale_price, mcmv_faixa from properties.properties "
+                    "where publish_site and (slug = :slug or code = :slug) limit 1"
+                ),
+                {"slug": slug},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Imóvel não encontrado")
+    if row["sale_price"] is None or row["sale_price"] <= 0:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Imóvel sem preço de venda — a simulação não se aplica.",
+        )
+    faixa_escolhida = faixa or row["mcmv_faixa"] or (
+        faixa_por_renda(renda) if renda else None
+    )
+    if faixa_escolhida is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Informe a faixa MCMV ou uma renda familiar bruta.",
+        )
+    sim = simular(
+        valor_imovel=row["sale_price"],
+        faixa=faixa_escolhida,  # type: ignore[arg-type]
+        entrada=entrada,
+        prazo_meses=prazo_meses,
+        renda_familiar_bruta=renda,
+    )
+    return McmvSim(
+        faixa=sim.faixa,
+        faixa_nome=sim.faixa_nome,
+        valor_imovel=sim.valor_imovel,
+        entrada=sim.entrada,
+        financiado=sim.financiado,
+        prazo_meses=sim.prazo_meses,
+        taxa_anual=sim.taxa_anual,
+        parcela_estimada=sim.parcela_estimada,
+        renda_minima_sugerida=sim.renda_minima_sugerida,
+        cabe_na_renda=sim.cabe_na_renda,
     )
 
 
@@ -438,26 +559,43 @@ async def capture_lead(payload: LeadIn, db: PublicDb, tenant_id: TenantId) -> di
         )
     ).scalar_one()
 
-    await db.execute(
-        text(
-            f"""
-            insert into {schema}.leads
-                (tenant_id, pipeline_id, stage_id, property_id, name, phone, email,
-                 source, notes)
-            values (:tid, :pid, :sid, :property_id, :name, :phone, :email, 'site', :notes)
-            """  # noqa: S608
-        ),
-        {
-            "tid": str(tenant_id),
-            "pid": str(pipeline_id),
-            "sid": str(stage_id),
-            "property_id": str(property_id) if property_id else None,
-            "name": payload.name.strip(),
-            "phone": payload.phone.strip(),
-            "email": (payload.email or "").strip() or None,
-            "notes": payload.message,
-        },
-    )
+    params = {
+        "tid": str(tenant_id),
+        "pid": str(pipeline_id),
+        "sid": str(stage_id),
+        "property_id": str(property_id) if property_id else None,
+        "name": payload.name.strip(),
+        "phone": payload.phone.strip(),
+        "email": (payload.email or "").strip() or None,
+        "notes": payload.message,
+    }
+    if schema == "sales" and payload.renda_familiar_bruta is not None:
+        params["renda"] = payload.renda_familiar_bruta
+        await db.execute(
+            text(
+                """
+                insert into sales.leads
+                    (tenant_id, pipeline_id, stage_id, property_id, name, phone, email,
+                     source, notes, renda_familiar_bruta)
+                values (:tid, :pid, :sid, :property_id, :name, :phone, :email,
+                        'site', :notes, :renda)
+                """
+            ),
+            params,
+        )
+    else:
+        await db.execute(
+            text(
+                f"""
+                insert into {schema}.leads
+                    (tenant_id, pipeline_id, stage_id, property_id, name, phone, email,
+                     source, notes)
+                values (:tid, :pid, :sid, :property_id, :name, :phone, :email,
+                        'site', :notes)
+                """  # noqa: S608
+            ),
+            params,
+        )
     return {"received": True}
 
 
@@ -621,6 +759,7 @@ def _card(row, whatsapp: str | None, cover_path: str | None) -> PublicCard:
         pet_allowed=row["pet_allowed"],
         republic_allowed=row["republic_allowed"],
         has_leisure_area=row["has_leisure_area"],
+        mcmv_faixa=row["mcmv_faixa"],
         cover_url=storage.public_url(BUCKET_PROPERTY_PHOTOS, cover_path) if cover_path else None,
         whatsapp_url=wa,
     )

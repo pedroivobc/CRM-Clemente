@@ -21,7 +21,7 @@ import {
 } from "@/components/ui";
 import { api, type Page } from "@/lib/api";
 import { money, shortAddress } from "@/lib/format";
-import { PROPERTY_KINDS, PROPERTY_STATUS, PURPOSES } from "@/lib/labels";
+import { MCMV_FAIXAS, PROPERTY_KINDS, PROPERTY_STATUS, PURPOSES } from "@/lib/labels";
 import type { Address, Property, PropertyStatus } from "@/lib/types";
 
 export function Imoveis() {
@@ -228,6 +228,7 @@ export function PropertyFormDialog({
     pet_allowed: null as boolean | null,
     republic_allowed: null as boolean | null,
     has_leisure_area: null as boolean | null,
+    mcmv_faixa: "" as "" | "faixa_1" | "faixa_2" | "faixa_3" | "faixa_4",
   });
   const [address, setAddress] = React.useState<Address>({});
   const [error, setError] = React.useState<string | null>(null);
@@ -256,6 +257,7 @@ export function PropertyFormDialog({
         pet_allowed: form.pet_allowed,
         republic_allowed: form.republic_allowed,
         has_leisure_area: form.has_leisure_area,
+        mcmv_faixa: form.mcmv_faixa || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["properties"] });
@@ -451,6 +453,25 @@ export function PropertyFormDialog({
             />
           </Field>
         </div>
+
+        <Field
+          label="Faixa do Minha Casa Minha Vida"
+          hint="Só marque quando o imóvel se encaixa em alguma faixa — vira selo na vitrine."
+        >
+          <Select
+            value={form.mcmv_faixa}
+            onChange={(e) =>
+              set({ mcmv_faixa: e.target.value as typeof form.mcmv_faixa })
+            }
+          >
+            <option value="">Fora do programa</option>
+            {(Object.keys(MCMV_FAIXAS) as (keyof typeof MCMV_FAIXAS)[]).map((k) => (
+              <option key={k} value={k}>
+                {MCMV_FAIXAS[k].label} — {MCMV_FAIXAS[k].hint}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
         <div className="grid gap-4 sm:grid-cols-4">
           <Field label="CEP">

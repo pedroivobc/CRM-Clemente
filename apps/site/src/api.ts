@@ -43,6 +43,7 @@ export type Facets = {
   neighborhoods: string[];
   price_min: string | null;
   price_max: string | null;
+  mcmv_faixas: string[];
 };
 
 export type ShowcaseConfig = {
@@ -84,6 +85,7 @@ export type PublicCard = {
   pet_allowed: boolean | null;
   republic_allowed: boolean | null;
   has_leisure_area: boolean | null;
+  mcmv_faixa: "faixa_1" | "faixa_2" | "faixa_3" | "faixa_4" | null;
   cover_url: string | null;
   whatsapp_url: string | null;
 };
@@ -101,7 +103,21 @@ export type PublicDetail = PublicCard & {
   tour_url: string | null;
   video_url: string | null;
   video_embed: string | null;
+  mcmv_parcela_estimada: string | null;
   photos: string[];
+};
+
+export type McmvSim = {
+  faixa: string;
+  faixa_nome: string;
+  valor_imovel: string;
+  entrada: string;
+  financiado: string;
+  prazo_meses: number;
+  taxa_anual: string;
+  parcela_estimada: string;
+  renda_minima_sugerida: string;
+  cabe_na_renda: boolean;
 };
 
 export type PublicPage = {

@@ -14,6 +14,7 @@ from sqlalchemy import text
 from app.core.audit import record_audit
 from app.core.deps import DbDep, require_permission
 from app.core.security import CurrentUser
+from app.domain.mcmv import faixa_por_renda, simular
 from app.domain.publishing import (
     RENTAL_WARRANTIES,
     build_slug,
@@ -108,6 +109,7 @@ class PropertyIn(BaseModel):
     iptu_amount: Decimal | None = None
     tour_url: str | None = None
     video_url: str | None = None
+    mcmv_faixa: str | None = Field(None, pattern="^(faixa_1|faixa_2|faixa_3|faixa_4)$")
     is_exclusive: bool = False
     owners: list[OwnerIn] = Field(default_factory=list)
 
@@ -143,6 +145,7 @@ class PropertyUpdate(BaseModel):
     iptu_amount: Decimal | None = None
     tour_url: str | None = None
     video_url: str | None = None
+    mcmv_faixa: str | None = Field(None, pattern="^(faixa_1|faixa_2|faixa_3|faixa_4)$")
     is_exclusive: bool | None = None
     owners: list[OwnerIn] | None = None
 
@@ -235,6 +238,7 @@ class PropertyOut(BaseModel):
     iptu_amount: Decimal | None
     tour_url: str | None
     video_url: str | None
+    mcmv_faixa: str | None
     is_exclusive: bool
     publish_site: bool
     publish_portals: bool
@@ -337,7 +341,7 @@ async def create_property(
                      year_built, floors, unit_floor, lot_area, area_util, bedrooms, suites,
                      bathrooms, parking_spots, pet_allowed, republic_allowed, has_leisure_area,
                      rental_warranties, sale_price, rent_price, condo_fee, iptu_amount,
-                     tour_url, video_url, is_exclusive)
+                     tour_url, video_url, mcmv_faixa, is_exclusive)
                 values
                     (:tid, :code, :slug, :kind, :purpose, :usage_type, :title, :description,
                      cast(:address as jsonb), :address_visibility, :registry_number, :iptu_code,
@@ -345,7 +349,7 @@ async def create_property(
                      :area_util, :bedrooms, :suites, :bathrooms, :parking_spots,
                      :pet_allowed, :republic_allowed, :has_leisure_area,
                      :rental_warranties, :sale_price, :rent_price, :condo_fee, :iptu_amount,
-                     :tour_url, :video_url, :is_exclusive)
+                     :tour_url, :video_url, :mcmv_faixa, :is_exclusive)
                 returning id
                 """
             ),
@@ -382,6 +386,7 @@ async def create_property(
                 "iptu_amount": payload.iptu_amount,
                 "tour_url": payload.tour_url,
                 "video_url": payload.video_url,
+                "mcmv_faixa": payload.mcmv_faixa,
                 "is_exclusive": payload.is_exclusive,
             },
         )
@@ -455,6 +460,73 @@ async def update_property(
 class CaptionOut(BaseModel):
     platform: str
     caption: str
+
+
+class McmvSimulationOut(BaseModel):
+    faixa: str
+    faixa_nome: str
+    valor_imovel: Decimal
+    entrada: Decimal
+    financiado: Decimal
+    prazo_meses: int
+    taxa_anual: Decimal
+    parcela_estimada: Decimal
+    renda_minima_sugerida: Decimal
+    cabe_na_renda: bool
+
+
+@router.get("/{property_id}/mcmv/simulate", response_model=McmvSimulationOut)
+async def simulate_mcmv(
+    property_id: UUID,
+    db: DbDep,
+    faixa: str | None = Query(
+        None, pattern="^(faixa_1|faixa_2|faixa_3|faixa_4)$"
+    ),
+    entrada: Decimal | None = None,
+    prazo_meses: int | None = Query(None, ge=12, le=420),
+    renda: Decimal | None = None,
+    user: CurrentUser = Depends(require_permission("imoveis", "view")),
+) -> McmvSimulationOut:
+    """Simula o financiamento MCMV para o imóvel, na faixa dele ou na indicada.
+
+    Sem faixa, usa a que está no cadastro; sem renda, calcula a renda mínima
+    sugerida sem julgar comprometimento; sem prazo, usa o teto da faixa.
+    """
+    prop = await _get_property(db, property_id)
+    valor = prop.sale_price
+    if valor is None or valor <= 0:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Imóvel sem preço de venda cadastrado.",
+        )
+    faixa_escolhida = faixa or prop.mcmv_faixa
+    if faixa_escolhida is None:
+        # Sem faixa no cadastro e sem escolha, deduz pela renda declarada.
+        faixa_escolhida = faixa_por_renda(renda) if renda else None
+    if faixa_escolhida is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Informe a faixa MCMV ou uma renda familiar bruta para deduzir.",
+        )
+    sim = simular(
+        valor_imovel=valor,
+        faixa=faixa_escolhida,  # type: ignore[arg-type]
+        entrada=entrada,
+        prazo_meses=prazo_meses,
+        renda_familiar_bruta=renda,
+    )
+    return McmvSimulationOut(
+        faixa=sim.faixa,
+        faixa_nome=sim.faixa_nome,
+        valor_imovel=sim.valor_imovel,
+        entrada=sim.entrada,
+        financiado=sim.financiado,
+        prazo_meses=sim.prazo_meses,
+        taxa_anual=sim.taxa_anual,
+        parcela_estimada=sim.parcela_estimada,
+        renda_minima_sugerida=sim.renda_minima_sugerida,
+        cabe_na_renda=sim.cabe_na_renda,
+    )
 
 
 @router.get("/{property_id}/caption", response_model=CaptionOut)
@@ -990,6 +1062,7 @@ async def _to_property_out(db, row, *, with_details: bool = True) -> PropertyOut
         iptu_amount=row["iptu_amount"],
         tour_url=row["tour_url"],
         video_url=row["video_url"],
+        mcmv_faixa=row["mcmv_faixa"],
         is_exclusive=row["is_exclusive"],
         publish_site=row["publish_site"],
         publish_portals=row["publish_portals"],

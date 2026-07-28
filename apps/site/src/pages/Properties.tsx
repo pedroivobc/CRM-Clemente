@@ -11,7 +11,15 @@ type Filters = {
   kind: string;
   neighborhood: string;
   max_price: string;
+  mcmv: string;
   sort: string;
+};
+
+const MCMV_LABELS: Record<string, string> = {
+  faixa_1: "Faixa 1",
+  faixa_2: "Faixa 2",
+  faixa_3: "Faixa 3",
+  faixa_4: "Faixa 4",
 };
 
 const SORTS = [
@@ -31,6 +39,7 @@ export function Properties() {
     kind: params.get("kind") ?? "",
     neighborhood: params.get("neighborhood") ?? "",
     max_price: params.get("max_price") ?? "",
+    mcmv: params.get("mcmv") ?? "",
     sort: params.get("sort") ?? "recentes",
   };
 
@@ -54,6 +63,7 @@ export function Properties() {
     if (filters.kind) q.set("kind", filters.kind);
     if (filters.neighborhood) q.set("neighborhood", filters.neighborhood);
     if (filters.max_price) q.set("max_price", filters.max_price.replace(/\D/g, ""));
+    if (filters.mcmv) q.set("mcmv", filters.mcmv);
 
     api
       .get<PublicPage>(`/properties?${q.toString()}`)
@@ -119,6 +129,20 @@ export function Properties() {
               onChange={(e) => update("max_price", e.target.value)}
             />
           </div>
+          {config.facets.mcmv_faixas.length > 0 ? (
+            <div>
+              <label style={{ fontSize: 11, color: "var(--muted)" }}>MCMV</label>
+              <select value={filters.mcmv} onChange={(e) => update("mcmv", e.target.value)}>
+                <option value="">Todos</option>
+                <option value="qualquer">Qualquer faixa</option>
+                {config.facets.mcmv_faixas.map((f) => (
+                  <option key={f} value={f}>
+                    {MCMV_LABELS[f] ?? f}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
           <div>
             <label style={{ fontSize: 11, color: "var(--muted)" }}>Ordenar</label>
             <select value={filters.sort} onChange={(e) => update("sort", e.target.value)}>

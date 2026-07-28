@@ -137,6 +137,7 @@ export type Property = {
   iptu_amount: string | null;
   tour_url: string | null;
   video_url: string | null;
+  mcmv_faixa: "faixa_1" | "faixa_2" | "faixa_3" | "faixa_4" | null;
   is_exclusive: boolean;
   publish_site: boolean;
   publish_portals: boolean;
