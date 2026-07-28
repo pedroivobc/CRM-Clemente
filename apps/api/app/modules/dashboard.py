@@ -80,3 +80,104 @@ async def overview(db: DbDep, user: CurrentUserDep) -> dict:
         "financeiro": dict(finance_row),
         "imoveis_por_status": [dict(r) for r in by_status],
     }
+
+
+@router.get("/segunda")
+async def manha_de_segunda(db: DbDep, user: CurrentUserDep) -> dict:
+    """Seis números para a manhã de segunda-feira do dono da imobiliária.
+
+    A ideia é servir um resumo que caiba no golpe de vista: quanto entra
+    esta semana, quanto está atrasado, o que vence, quantos negócios abertos.
+    Sem filtros, sem tabelas — só os números que orientam o dia.
+    """
+    receita = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select
+                      coalesce(sum(amount) filter (
+                        where status = 'pendente'
+                          and due_date between current_date and current_date + 7
+                      ), 0) as a_receber_7dias,
+                      coalesce(sum(amount) filter (
+                        where status = 'pendente' and due_date < current_date
+                      ), 0) as em_atraso,
+                      count(*) filter (
+                        where status = 'pendente' and due_date < current_date
+                      ) as em_atraso_qtd
+                    from finance.receivables
+                    """
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    contratos = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select
+                      count(*) filter (
+                        where status = 'ativo'
+                          and end_date between current_date and current_date + 60
+                      ) as vencendo_60d,
+                      count(*) filter (where status = 'ativo') as ativos
+                    from rentals.contracts
+                    """
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    negocios = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select
+                      (select count(*) from sales.leads where status = 'aberto') +
+                      (select count(*) from rentals.leads where status = 'aberto') as leads_abertos,
+                      (select count(*) from sales.proposals where status = 'aberta')
+                        as propostas_abertas
+                    """
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    imoveis = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select
+                      count(*) filter (where publish_site) as anunciados,
+                      count(*) filter (where status = 'captacao') as em_captacao
+                    from properties.properties
+                    """
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+
+    return {
+        "receita_7dias": float(receita["a_receber_7dias"] or 0),
+        "em_atraso": float(receita["em_atraso"] or 0),
+        "em_atraso_qtd": int(receita["em_atraso_qtd"] or 0),
+        "contratos_vencendo_60d": int(contratos["vencendo_60d"] or 0),
+        "contratos_ativos": int(contratos["ativos"] or 0),
+        "leads_abertos": int(negocios["leads_abertos"] or 0),
+        "propostas_abertas": int(negocios["propostas_abertas"] or 0),
+        "imoveis_anunciados": int(imoveis["anunciados"] or 0),
+        "imoveis_em_captacao": int(imoveis["em_captacao"] or 0),
+    }

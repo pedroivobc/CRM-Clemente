@@ -249,6 +249,58 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
           {children}
         </main>
+        <InstallPrompt />
+      </div>
+    </div>
+  );
+}
+
+type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
+
+/**
+ * Prompt discreto de instalação. Chrome/Edge no Android disparam
+ * `beforeinstallprompt`; iOS/Safari não, mas o navegador tem "Adicionar à
+ * tela de início" no menu — o botão fica escondido lá. Ignora se o usuário
+ * já dispensou nesta sessão.
+ */
+function InstallPrompt() {
+  const [event, setEvent] = React.useState<InstallEvent | null>(null);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("pwa-dismissed") === "1") return;
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setEvent(e as InstallEvent);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  if (!event) return null;
+  return (
+    <div className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm rounded-xl border border-line bg-surface p-3 shadow-lg lg:right-6 lg:left-auto lg:mx-0">
+      <p className="text-[13px] text-ink">
+        Instale o painel na tela de início para abrir mais rápido.
+      </p>
+      <div className="mt-2 flex justify-end gap-2">
+        <button
+          className="px-2 py-1 text-[12.5px] text-muted"
+          onClick={() => {
+            sessionStorage.setItem("pwa-dismissed", "1");
+            setEvent(null);
+          }}
+        >
+          Agora não
+        </button>
+        <button
+          className="rounded bg-[var(--brand-primary)] px-3 py-1 text-[12.5px] font-medium text-white"
+          onClick={async () => {
+            await event.prompt();
+            setEvent(null);
+          }}
+        >
+          Instalar
+        </button>
       </div>
     </div>
   );

@@ -1,5 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, FileWarning } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CalendarClock,
+  FileWarning,
+  Handshake,
+  Megaphone,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
 import * as React from "react";
 import { Link } from "react-router-dom";
 
@@ -106,12 +115,147 @@ function PainelCarteira({
 
   return (
     <div className="space-y-5">
+      <MondayStrip />
       <PortfolioStrip data={data} />
       <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
         {canSeeFinance ? <FinancePosition data={data} /> : null}
         <PendingItems expiring={expiring ?? []} />
       </div>
     </div>
+  );
+}
+
+type MondayData = {
+  receita_7dias: number;
+  em_atraso: number;
+  em_atraso_qtd: number;
+  contratos_vencendo_60d: number;
+  contratos_ativos: number;
+  leads_abertos: number;
+  propostas_abertas: number;
+  imoveis_anunciados: number;
+  imoveis_em_captacao: number;
+};
+
+/**
+ * Faixa "manhã de segunda" — seis números lidos num golpe de vista, para
+ * o dono da imobiliária começar a semana sabendo o essencial sem clicar.
+ * Nenhum recurso novo por baixo: agrega dados que já existem no sistema.
+ */
+function MondayStrip() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", "segunda"],
+    queryFn: () => api.get<MondayData>("/dashboard/segunda"),
+    staleTime: 60_000,
+  });
+
+  if (isLoading || !data) {
+    return (
+      <Card className="grid h-32 place-items-center">
+        <Spinner />
+      </Card>
+    );
+  }
+
+  const tiles = [
+    {
+      key: "receita",
+      label: "Receita nos próximos 7 dias",
+      value: money(String(data.receita_7dias)),
+      hint: data.receita_7dias > 0 ? "cobranças a vencer" : "sem cobranças a vencer",
+      icon: <Wallet className="size-4" />,
+      to: "/cobrancas",
+      tone: "positive" as const,
+    },
+    {
+      key: "atraso",
+      label: "Em atraso",
+      value: money(String(data.em_atraso)),
+      hint:
+        data.em_atraso_qtd > 0
+          ? `${data.em_atraso_qtd} ${data.em_atraso_qtd === 1 ? "cobrança" : "cobranças"}`
+          : "carteira em dia",
+      icon: <AlertTriangle className="size-4" />,
+      to: "/cobrancas?status=vencidos",
+      tone: data.em_atraso > 0 ? ("critical" as const) : ("neutral" as const),
+    },
+    {
+      key: "contratos",
+      label: "Contratos vencendo em 60 dias",
+      value: String(data.contratos_vencendo_60d),
+      hint: `${data.contratos_ativos} ${data.contratos_ativos === 1 ? "ativo" : "ativos"}`,
+      icon: <CalendarClock className="size-4" />,
+      to: "/contratos",
+      tone: data.contratos_vencendo_60d > 0 ? ("caution" as const) : ("neutral" as const),
+    },
+    {
+      key: "leads",
+      label: "Leads em aberto",
+      value: String(data.leads_abertos),
+      hint: "aguardando atendimento",
+      icon: <Sparkles className="size-4" />,
+      to: "/funil",
+      tone: "brand" as const,
+    },
+    {
+      key: "propostas",
+      label: "Propostas em aberto",
+      value: String(data.propostas_abertas),
+      hint: "esperando resposta",
+      icon: <Handshake className="size-4" />,
+      to: "/vendas",
+      tone: "brand" as const,
+    },
+    {
+      key: "vitrine",
+      label: "Imóveis anunciados",
+      value: String(data.imoveis_anunciados),
+      hint: `${data.imoveis_em_captacao} em captação`,
+      icon: <Megaphone className="size-4" />,
+      to: "/imoveis",
+      tone: "neutral" as const,
+    },
+  ];
+
+  return (
+    <section aria-label="Manhã de segunda">
+      <div className="mb-2 flex items-baseline gap-2">
+        <h2 className="font-display text-[15px] font-semibold text-ink">Manhã de segunda</h2>
+        <p className="text-[12px] text-muted">o essencial para começar a semana</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {tiles.map((tile) => (
+          <Link
+            key={tile.key}
+            to={tile.to}
+            className="group rounded-xl border border-line bg-surface p-4 shadow-sm transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand-primary)]"
+          >
+            <div className="flex items-center gap-2 text-muted group-hover:text-ink">
+              <span
+                className={
+                  {
+                    positive: "text-positive",
+                    critical: "text-critical",
+                    caution: "text-caution",
+                    brand: "text-[var(--brand-primary)]",
+                    neutral: "text-muted",
+                  }[tile.tone]
+                }
+              >
+                {tile.icon}
+              </span>
+              <span className="text-[11.5px] font-medium tracking-wide uppercase">
+                {tile.label}
+              </span>
+            </div>
+            <div className="mt-2 font-display text-2xl font-semibold tabular text-ink">
+              {tile.value}
+            </div>
+            <p className="mt-1 text-[12px] text-muted">{tile.hint}</p>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
