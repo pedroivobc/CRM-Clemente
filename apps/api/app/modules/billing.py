@@ -381,6 +381,180 @@ async def get_charge(
     return await _get_charge(db, charge_id)
 
 
+class DunningRule(BaseModel):
+    id: UUID | None = None
+    offset_days: int = Field(..., ge=-30, le=90)
+    channel: str = Field("whatsapp", pattern="^(whatsapp|email|sms)$")
+    message_template: str = Field(..., min_length=10, max_length=1000)
+    enabled: bool = True
+
+
+@router.get("/dunning-rules", response_model=list[DunningRule])
+async def list_dunning_rules(
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("financeiro", "view")),
+) -> list[DunningRule]:
+    rows = (
+        (
+            await db.execute(
+                text(
+                    "select id, offset_days, channel, message_template, enabled "
+                    "from rentals.dunning_rules order by offset_days"
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [DunningRule(**dict(r)) for r in rows]
+
+
+@router.put("/dunning-rules", response_model=list[DunningRule])
+async def replace_dunning_rules(
+    rules: list[DunningRule],
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("financeiro", "edit")),
+) -> list[DunningRule]:
+    """Substitui a régua inteira do tenant. Simples e coerente: o gestor edita
+    a régua num único formulário, envia, e o backend guarda a versão final —
+    sem migrar linhas por id."""
+    seen = set()
+    for r in rules:
+        key = (r.offset_days, r.channel)
+        if key in seen:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Duplicidade em offset_days={r.offset_days} canal={r.channel}",
+            )
+        seen.add(key)
+
+    await db.execute(text("delete from rentals.dunning_rules"))
+    for i, r in enumerate(rules):
+        await db.execute(
+            text(
+                """
+                insert into rentals.dunning_rules
+                    (tenant_id, offset_days, channel, message_template, enabled, sort_order)
+                values (:tid, :off, :ch, :tpl, :en, :order)
+                """
+            ),
+            {
+                "tid": str(user.tenant_id),
+                "off": r.offset_days,
+                "ch": r.channel,
+                "tpl": r.message_template,
+                "en": r.enabled,
+                "order": i,
+            },
+        )
+    await record_audit(db, user, "tenant_branding", user.tenant_id, "update")
+    return await list_dunning_rules(db, user)
+
+
+class DunningTask(BaseModel):
+    charge_id: UUID
+    contract_code: str
+    property_code: str
+    tenant_name: str | None
+    tenant_phone: str | None
+    competence: date
+    due_date: date
+    amount: Decimal
+    days_late: int
+    offset_days: int
+    channel: str
+    message_preview: str
+
+
+@router.get("/dunning/today", response_model=list[DunningTask])
+async def dunning_today(
+    db: DbDep,
+    user: CurrentUser = Depends(require_permission("financeiro", "view")),
+) -> list[DunningTask]:
+    """Lista o que a régua manda comunicar hoje.
+
+    Cruza a régua com as cobranças em aberto: uma cobrança que vence em N dias
+    dispara a regra ``offset_days = -N``; uma que venceu há M dias dispara
+    ``offset_days = +M``. O corretor decide se envia — a página tem o botão
+    "WhatsApp" que já monta o link mágico e abre a conversa.
+    """
+    rows = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select ch.id as charge_id, ch.competence, ch.due_date,
+                           ch.gross_amount as amount,
+                           greatest(0, current_date - ch.due_date) as days_late,
+                           co.code as contract_code,
+                           p.code as property_code,
+                           tenant_client.name as tenant_name,
+                           tenant_client.phone as tenant_phone,
+                           dr.offset_days, dr.channel, dr.message_template
+                    from rentals.dunning_rules dr
+                    join rentals.charges ch
+                      on ch.status = 'pendente'
+                     and (ch.due_date - current_date) = -dr.offset_days
+                    join rentals.contracts co on co.id = ch.contract_id
+                    join properties.properties p on p.id = co.property_id
+                    left join lateral (
+                      select c.name, c.phone
+                      from rentals.contract_parties cp
+                      join crm.clients c on c.id = cp.client_id
+                      where cp.contract_id = co.id and cp.role = 'locatario'
+                      order by cp.created_at limit 1
+                    ) tenant_client on true
+                    where dr.enabled
+                    order by ch.due_date, co.code
+                    """
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+    tasks: list[DunningTask] = []
+    for r in rows:
+        preview = _render_template(
+            r["message_template"],
+            tenant_name=r["tenant_name"] or "cliente",
+            amount=r["amount"],
+            due_date=r["due_date"],
+            link="{{link}}",
+        )
+        tasks.append(
+            DunningTask(
+                charge_id=r["charge_id"],
+                contract_code=r["contract_code"],
+                property_code=r["property_code"],
+                tenant_name=r["tenant_name"],
+                tenant_phone=r["tenant_phone"],
+                competence=r["competence"],
+                due_date=r["due_date"],
+                amount=r["amount"],
+                days_late=int(r["days_late"] or 0),
+                offset_days=int(r["offset_days"]),
+                channel=r["channel"],
+                message_preview=preview,
+            )
+        )
+    return tasks
+
+
+def _render_template(
+    template: str, *, tenant_name: str, amount: Decimal, due_date: date, link: str
+) -> str:
+    """Substitui placeholders da régua no template."""
+    return (
+        template
+        .replace("{{inquilino}}", tenant_name)
+        .replace("{{valor}}", f"R$ {amount:.2f}".replace(".", ","))
+        .replace("{{vencimento}}", due_date.strftime("%d/%m/%Y"))
+        .replace("{{link}}", link)
+        .replace("{{imobiliaria}}", "")  # o WhatsApp já mostra o remetente
+    )
+
+
 class MagicLinkOut(BaseModel):
     token: str
     url: str

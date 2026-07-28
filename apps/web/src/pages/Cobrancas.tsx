@@ -1,5 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, MessageCircle, PlayCircle, Receipt } from "lucide-react";
+import {
+  BellRing,
+  Check,
+  Copy,
+  MessageCircle,
+  PlayCircle,
+  Plus,
+  Receipt,
+  Settings2,
+  Trash2,
+} from "lucide-react";
 import * as React from "react";
 
 import { useAuth } from "@/auth/AuthProvider";
@@ -19,6 +29,7 @@ import {
   Spinner,
   Table,
   Td,
+  Textarea,
   Th,
   Tr,
 } from "@/components/ui";
@@ -187,6 +198,9 @@ export function Cobrancas() {
           />
         </dl>
       </Card>
+
+      <DunningPanel canEdit={can("financeiro", "edit")} />
+
 
       <Card className="mb-5">
         <CardHeader
@@ -691,6 +705,284 @@ function DeductionDialog({
             />
           </Field>
         </div>
+        {error ? <ErrorNote>{error}</ErrorNote> : null}
+      </div>
+    </Dialog>
+  );
+}
+
+/* ── Régua de cobrança ─────────────────────────────────────────────────── */
+
+type DunningRule = {
+  id?: string;
+  offset_days: number;
+  channel: "whatsapp" | "email" | "sms";
+  message_template: string;
+  enabled: boolean;
+};
+
+type DunningTask = {
+  charge_id: string;
+  contract_code: string;
+  property_code: string;
+  tenant_name: string | null;
+  tenant_phone: string | null;
+  competence: string;
+  due_date: string;
+  amount: string;
+  days_late: number;
+  offset_days: number;
+  channel: string;
+  message_preview: string;
+};
+
+const DEFAULT_RULES: DunningRule[] = [
+  {
+    offset_days: -3,
+    channel: "whatsapp",
+    message_template:
+      "Olá {{inquilino}}, tudo bem? Só passando pra lembrar que o aluguel de " +
+      "{{valor}} vence em {{vencimento}}. A 2ª via está aqui: {{link}}",
+    enabled: true,
+  },
+  {
+    offset_days: 0,
+    channel: "whatsapp",
+    message_template:
+      "Olá {{inquilino}}! Hoje vence o aluguel de {{valor}}. Se preferir Pix, " +
+      "está tudo aqui: {{link}}",
+    enabled: true,
+  },
+  {
+    offset_days: 3,
+    channel: "whatsapp",
+    message_template:
+      "Olá {{inquilino}}, o aluguel de {{valor}} venceu em {{vencimento}}. " +
+      "Se já pagou, desconsidere. Se ainda precisa, o link atualizado é " +
+      "{{link}}. Qualquer coisa, chama.",
+    enabled: true,
+  },
+  {
+    offset_days: 7,
+    channel: "whatsapp",
+    message_template:
+      "Olá {{inquilino}}, está pendente o aluguel de {{valor}} do dia " +
+      "{{vencimento}}. Podemos combinar uma forma? {{link}}",
+    enabled: true,
+  },
+];
+
+function DunningPanel({ canEdit }: { canEdit: boolean }) {
+  const [configOpen, setConfigOpen] = React.useState(false);
+  const { data: tasks } = useQuery({
+    queryKey: ["billing", "dunning", "today"],
+    queryFn: () => api.get<DunningTask[]>("/billing/dunning/today"),
+    refetchInterval: 60_000,
+  });
+
+  const [linkByCharge, setLinkByCharge] = React.useState<Record<string, string>>({});
+
+  async function sendNow(task: DunningTask) {
+    if (!task.tenant_phone) return;
+    const link =
+      linkByCharge[task.charge_id] ??
+      (await api.post<{ url: string }>(`/billing/charges/${task.charge_id}/magic-link`)).url;
+    setLinkByCharge((prev) => ({ ...prev, [task.charge_id]: link }));
+    const message = task.message_preview.replace("{{link}}", link);
+    const digits = task.tenant_phone.replace(/\D/g, "");
+    const withDdi = digits.startsWith("55") ? digits : "55" + digits;
+    window.open(
+      `https://wa.me/${withDdi}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener",
+    );
+  }
+
+  return (
+    <Card className="mb-5">
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            <BellRing className="size-4 text-muted" />
+            Régua de cobrança — hoje
+          </span>
+        }
+        hint={
+          tasks && tasks.length > 0
+            ? `${tasks.length} ${tasks.length === 1 ? "mensagem sugerida" : "mensagens sugeridas"}`
+            : "Nada a comunicar por enquanto"
+        }
+        action={
+          canEdit ? (
+            <Button variant="outline" size="sm" onClick={() => setConfigOpen(true)}>
+              <Settings2 />
+              Configurar régua
+            </Button>
+          ) : null
+        }
+      />
+
+      {tasks && tasks.length > 0 ? (
+        <ul className="divide-y divide-line-soft">
+          {tasks.map((task) => (
+            <li
+              key={`${task.charge_id}-${task.offset_days}`}
+              className="flex flex-wrap items-center gap-3 px-5 py-3"
+            >
+              <Badge tone={task.offset_days > 0 ? "critical" : task.offset_days < 0 ? "brand" : "caution"}>
+                {task.offset_days === 0
+                  ? "vence hoje"
+                  : task.offset_days > 0
+                    ? `atraso ${task.offset_days}d`
+                    : `vence em ${-task.offset_days}d`}
+              </Badge>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-ink">
+                  {task.tenant_name ?? "Locatário"}{" "}
+                  <span className="text-muted">· {task.contract_code}</span>
+                </div>
+                <div className="truncate text-[12px] text-muted">
+                  {task.property_code} · {money(task.amount)} · vence {date(task.due_date)}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => sendNow(task)}
+                disabled={!task.tenant_phone}
+                title={task.tenant_phone ? undefined : "Sem telefone cadastrado"}
+              >
+                <MessageCircle />
+                WhatsApp
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <DunningConfigDialog open={configOpen} onOpenChange={() => setConfigOpen(false)} />
+    </Card>
+  );
+}
+
+function DunningConfigDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["billing", "dunning", "rules"],
+    queryFn: () => api.get<DunningRule[]>("/billing/dunning-rules"),
+    enabled: open,
+  });
+
+  const [rules, setRules] = React.useState<DunningRule[]>([]);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setRules(data && data.length > 0 ? data : DEFAULT_RULES);
+      setError(null);
+    }
+  }, [open, data]);
+
+  const save = useMutation({
+    mutationFn: () => api.put<DunningRule[]>("/billing/dunning-rules", rules),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["billing", "dunning"] });
+      onOpenChange();
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  function updateRule(i: number, patch: Partial<DunningRule>) {
+    setRules((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Régua de cobrança"
+      description="Cada linha é um lembrete relativo ao vencimento. Suporta {{inquilino}}, {{valor}}, {{vencimento}} e {{link}}."
+      wide
+      footer={
+        <>
+          <Button variant="outline" onClick={onOpenChange}>
+            Cancelar
+          </Button>
+          <Button loading={save.isPending} onClick={() => save.mutate()}>
+            <Check />
+            Salvar régua
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        {rules.map((r, i) => (
+          <div
+            key={i}
+            className={`rounded-md border p-3 ${
+              r.enabled ? "border-line" : "border-line-soft bg-sunken"
+            }`}
+          >
+            <div className="mb-2 flex flex-wrap items-center gap-3">
+              <label className="text-[11.5px] text-muted">Offset (dias)</label>
+              <Input
+                type="number"
+                className="w-20 font-mono"
+                value={r.offset_days}
+                onChange={(e) => updateRule(i, { offset_days: Number(e.target.value) })}
+              />
+              <span className="text-[11.5px] text-muted">
+                {r.offset_days === 0
+                  ? "no dia do vencimento"
+                  : r.offset_days < 0
+                    ? `${-r.offset_days} dias antes`
+                    : `${r.offset_days} dias após`}
+              </span>
+              <label className="ml-auto flex items-center gap-1.5 text-[12px]">
+                <input
+                  type="checkbox"
+                  checked={r.enabled}
+                  onChange={(e) => updateRule(i, { enabled: e.target.checked })}
+                />
+                Ativa
+              </label>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setRules((p) => p.filter((_, idx) => idx !== i))}
+                aria-label="Remover"
+              >
+                <Trash2 />
+              </Button>
+            </div>
+            <Textarea
+              value={r.message_template}
+              onChange={(e) => updateRule(i, { message_template: e.target.value })}
+              placeholder="Mensagem"
+              className="text-[13px]"
+            />
+          </div>
+        ))}
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            setRules((p) => [
+              ...p,
+              { offset_days: 0, channel: "whatsapp", message_template: "", enabled: true },
+            ])
+          }
+        >
+          <Plus />
+          Nova regra
+        </Button>
+
         {error ? <ErrorNote>{error}</ErrorNote> : null}
       </div>
     </Dialog>
