@@ -21,6 +21,7 @@ import * as React from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { useBrandedPwa } from "@/lib/useBrandedPwa";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
@@ -136,6 +137,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   React.useEffect(() => setMobileOpen(false), [location.pathname]);
+  useBrandedPwa(tenant?.branding.color_primary, tenant?.branding.display_name);
 
   const groups = GROUPS.map((group) => ({
     ...group,

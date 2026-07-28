@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 
@@ -56,6 +56,119 @@ def _branding_out(row) -> BrandingOut:
             if row["favicon_path"]
             else None
         ),
+    )
+
+
+@router.get("/manifest.webmanifest")
+async def branded_manifest(db: DbDep, user: CurrentUserDep) -> Response:
+    """Web manifest personalizado — cada tenant vê o PWA com a marca dele.
+
+    O painel troca o `<link rel=manifest>` para este endpoint depois do login:
+    o navegador guarda o manifest e o ícone atualizado com o nome e a cor
+    da imobiliária. Reinstalar o app é necessário para o ícone velho sumir
+    do launcher.
+    """
+    row = (
+        (
+            await db.execute(
+                text(
+                    "select display_name, color_primary, logo_path, favicon_path "
+                    "from core.tenant_branding where tenant_id = :tid"
+                ),
+                {"tid": str(user.tenant_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    storage = get_storage()
+    name = (row["display_name"] if row else None) or "Imobiliária"
+    theme = (row["color_primary"] if row else None) or "#16181d"
+
+    icons: list[dict] = []
+    if row and row["logo_path"]:
+        logo_url = storage.public_url(BUCKET_BRANDING, row["logo_path"])
+        # Logo do tenant como maskable — Chrome aceita qualquer tipo bitmap.
+        icons.append({"src": logo_url, "sizes": "512x512", "type": "image/png", "purpose": "any"})
+    # Fallback SVG dinâmico: iniciais + cor. Serve pra tudo, escala sem perda.
+    icons.append(
+        {
+            "src": f"/api/v1/tenant/icon.svg?v={theme.lstrip('#')}",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable",
+        }
+    )
+
+    manifest = {
+        "name": name,
+        "short_name": name[:20],
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "portrait-primary",
+        "background_color": "#ffffff",
+        "theme_color": theme,
+        "icons": icons,
+    }
+    return Response(
+        content=__import__("json").dumps(manifest),
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+@router.get("/icon.svg")
+async def branded_icon(db: DbDep, user: CurrentUserDep) -> Response:
+    """SVG do ícone com iniciais e cor do tenant.
+
+    Serve como fallback do manifest quando não há logo — ou como
+    reforço quando o logo existe mas o launcher pede um ícone quadrado
+    controlado."""
+    row = (
+        (
+            await db.execute(
+                text(
+                    "select display_name, color_primary "
+                    "from core.tenant_branding where tenant_id = :tid"
+                ),
+                {"tid": str(user.tenant_id)},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    name = (row["display_name"] if row else None) or "IM"
+    color = (row["color_primary"] if row else None) or "#16181d"
+    initials = _initials(name)
+    svg = _render_icon_svg(initials=initials, color=color)
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+def _initials(name: str) -> str:
+    parts = [p for p in re.split(r"\s+", name.strip()) if p]
+    if not parts:
+        return "IM"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][0] + parts[-1][0]).upper()
+
+
+def _render_icon_svg(*, initials: str, color: str) -> str:
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">'
+        f'<rect width="128" height="128" rx="26" fill="{color}"/>'
+        '<text x="64" y="82" text-anchor="middle" '
+        'font-family="-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" '
+        'font-weight="700" font-size="56" fill="#ffffff">'
+        f"{initials}"
+        "</text>"
+        "</svg>"
     )
 
 
