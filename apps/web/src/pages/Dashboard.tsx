@@ -3,10 +3,15 @@ import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
+  FileText,
   FileWarning,
   Handshake,
   Megaphone,
+  Send,
   Sparkles,
+  Trophy,
+  UserMinus,
+  UserPlus,
   Wallet,
 } from "lucide-react";
 import * as React from "react";
@@ -116,13 +121,96 @@ function PainelCarteira({
   return (
     <div className="space-y-5">
       <MondayStrip />
-      <PortfolioStrip data={data} />
+      <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
+        <PortfolioStrip data={data} />
+        <ActivityFeed />
+      </div>
       <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
         {canSeeFinance ? <FinancePosition data={data} /> : null}
         <PendingItems expiring={expiring ?? []} />
       </div>
     </div>
   );
+}
+
+type ActivityEntry = {
+  id: string;
+  event_type: string;
+  summary: string;
+  actor_name: string | null;
+  created_at: string;
+};
+
+const EVENT_ICON: Record<string, { icon: React.ReactNode; tone: string }> = {
+  "lead.created": { icon: <UserPlus className="size-4" />, tone: "text-[var(--brand-primary)]" },
+  "lead.won": { icon: <Trophy className="size-4" />, tone: "text-positive" },
+  "lead.lost": { icon: <UserMinus className="size-4" />, tone: "text-muted" },
+  "proposal.created": { icon: <Send className="size-4" />, tone: "text-[var(--brand-primary)]" },
+  "deal.closed": { icon: <Trophy className="size-4" />, tone: "text-positive" },
+  "contract.activated": { icon: <FileText className="size-4" />, tone: "text-positive" },
+};
+
+/**
+ * Feed do time — o Twitter interno da imobiliária. Atualiza sozinho a
+ * cada 45s e mostra as últimas 30 movimentações. O gerente lê de manhã
+ * pra saber o pulso; o corretor vê que a equipe está se mexendo.
+ */
+function ActivityFeed() {
+  const { data } = useQuery({
+    queryKey: ["activity"],
+    queryFn: () => api.get<ActivityEntry[]>("/dashboard/activity?limit=30"),
+    refetchInterval: 45_000,
+  });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Pulso do time"
+        hint="O que rolou hoje na imobiliária"
+      />
+      {!data || data.length === 0 ? (
+        <p className="px-5 py-8 text-center text-[13px] text-muted">
+          Assim que a equipe se movimentar (leads, propostas, negócios), aparece aqui.
+        </p>
+      ) : (
+        <ul className="max-h-[360px] divide-y divide-line-soft overflow-y-auto">
+          {data.map((entry) => {
+            const meta = EVENT_ICON[entry.event_type] ?? {
+              icon: <Sparkles className="size-4" />,
+              tone: "text-muted",
+            };
+            return (
+              <li key={entry.id} className="flex items-start gap-3 px-5 py-3">
+                <span className={`mt-0.5 ${meta.tone}`} aria-hidden>
+                  {meta.icon}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] leading-snug text-ink">{entry.summary}</p>
+                  <p className="mt-0.5 text-[11.5px] text-muted">
+                    {entry.actor_name ?? "Sistema"} · {relativeTime(entry.created_at)}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const seconds = Math.floor((now - then) / 1000);
+  if (seconds < 60) return "agora";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min atrás`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h atrás`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} d atrás`;
+  return new Date(iso).toLocaleDateString("pt-BR");
 }
 
 type MondayData = {

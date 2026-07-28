@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
+from app.core.activity import record_activity
 from app.core.audit import record_audit
 from app.core.deps import DbDep, require_module, require_permission
 from app.core.security import CurrentUser
@@ -410,6 +411,14 @@ async def create_lead(
             "uid": str(user.user_id),
         },
     )
+    await record_activity(
+        db,
+        user,
+        event_type="lead.created",
+        summary=f"Novo lead de venda: {payload.name}",
+        subject_type="sales_lead",
+        subject_id=lead_id,
+    )
     return await _get_lead(db, lead_id)
 
 
@@ -505,7 +514,17 @@ async def move_lead(
         ),
         {"sid": str(payload.stage_id), "is_won": stage["is_won"], "lid": str(lead_id)},
     )
-    return await _get_lead(db, lead_id)
+    lead = await _get_lead(db, lead_id)
+    if stage["is_won"]:
+        await record_activity(
+            db,
+            user,
+            event_type="lead.won",
+            summary=f"Lead ganho: {lead.name}",
+            subject_type="sales_lead",
+            subject_id=lead_id,
+        )
+    return lead
 
 
 @router.post("/leads/{lead_id}/lose", response_model=LeadOut)
@@ -533,6 +552,15 @@ async def lose_lead(
         raise HTTPException(status.HTTP_409_CONFLICT, "Lead não encontrado ou já encerrado")
 
     await record_audit(db, user, "sales_lead", lead_id, "lose")
+    lost = await _get_lead(db, lead_id)
+    await record_activity(
+        db,
+        user,
+        event_type="lead.lost",
+        summary=f"Lead perdido: {lost.name}",
+        subject_type="sales_lead",
+        subject_id=lead_id,
+    )
     return await _get_lead(db, lead_id)
 
 
@@ -624,6 +652,17 @@ async def create_proposal(
         )
 
     await record_audit(db, user, "proposal", proposal_id, "create")
+    await record_activity(
+        db,
+        user,
+        event_type="proposal.created",
+        summary=(
+            f"Proposta {code} enviada por R$ {payload.offer_amount:,.2f}"
+            .replace(",", "X").replace(".", ",").replace("X", ".")
+        ),
+        subject_type="proposal",
+        subject_id=proposal_id,
+    )
     return await _get_proposal(db, proposal_id)
 
 
@@ -888,6 +927,18 @@ async def create_deal(
         deal_id,
         "create",
         after={"sale_amount": str(payload.sale_amount), "commission": str(commission.total)},
+    )
+    await record_activity(
+        db,
+        user,
+        event_type="deal.closed",
+        summary=(
+            f"Venda fechada de R$ {payload.sale_amount:,.2f}"
+            .replace(",", "X").replace(".", ",").replace("X", ".")
+        ),
+        subject_type="deal",
+        subject_id=deal_id,
+        meta={"sale_amount": str(payload.sale_amount)},
     )
     return await _get_deal(db, deal_id)
 

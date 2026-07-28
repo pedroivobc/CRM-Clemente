@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
+from app.core.activity import record_activity
 from app.core.audit import record_audit
 from app.core.deps import DbDep, require_module, require_permission
 from app.core.security import CurrentUser
@@ -388,7 +389,16 @@ async def activate_contract(
         {"pid": str(contract.property_id)},
     )
     await record_audit(db, user, "contract", contract_id, "activate")
-    return await _get_contract(db, contract_id)
+    activated = await _get_contract(db, contract_id)
+    await record_activity(
+        db,
+        user,
+        event_type="contract.activated",
+        summary=f"Contrato {activated.code} ativado",
+        subject_type="contract",
+        subject_id=contract_id,
+    )
+    return activated
 
 
 @router.post("/{contract_id}/terminate", response_model=ContractOut)

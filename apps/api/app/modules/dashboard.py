@@ -82,6 +82,50 @@ async def overview(db: DbDep, user: CurrentUserDep) -> dict:
     }
 
 
+@router.get("/activity")
+async def activity_feed(
+    db: DbDep,
+    user: CurrentUserDep,
+    limit: int = 30,
+) -> list[dict]:
+    """Últimos eventos do time no tenant, mais recentes primeiro."""
+    limit = max(1, min(limit, 100))
+    rows = (
+        (
+            await db.execute(
+                text(
+                    """
+                    select af.id, af.event_type, af.subject_type, af.subject_id,
+                           af.summary, af.meta, af.created_at,
+                           u.full_name as actor_name, u.email as actor_email
+                    from core.activity_feed af
+                    left join core.users u on u.id = af.actor_id
+                    order by af.created_at desc
+                    limit :limit
+                    """
+                ),
+                {"limit": limit},
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return [
+        {
+            "id": str(r["id"]),
+            "event_type": r["event_type"],
+            "subject_type": r["subject_type"],
+            "subject_id": str(r["subject_id"]) if r["subject_id"] else None,
+            "summary": r["summary"],
+            "meta": r["meta"] or {},
+            "created_at": r["created_at"].isoformat(),
+            "actor_name": r["actor_name"],
+            "actor_email": r["actor_email"],
+        }
+        for r in rows
+    ]
+
+
 @router.get("/segunda")
 async def manha_de_segunda(db: DbDep, user: CurrentUserDep) -> dict:
     """Seis números para a manhã de segunda-feira do dono da imobiliária.
