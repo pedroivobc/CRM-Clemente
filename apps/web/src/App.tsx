@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "@/auth/AuthProvider";
 import { Login } from "@/auth/Login";
+import { Signup } from "@/auth/Signup";
 import { AppShell } from "@/components/AppShell";
 import { Card, ErrorNote, Spinner } from "@/components/ui";
 import { ClienteDetalhe } from "@/pages/ClienteDetalhe";
@@ -34,9 +35,18 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <AuthProvider>
-          <Gate />
-        </AuthProvider>
+        <Routes>
+          {/* Cadastro público — sem AuthProvider, sem chamada a /session/me. */}
+          <Route path="/cadastro" element={<Signup />} />
+          <Route
+            path="*"
+            element={
+              <AuthProvider>
+                <Gate />
+              </AuthProvider>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   );

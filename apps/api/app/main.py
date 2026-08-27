@@ -103,7 +103,7 @@ app.include_router(webhooks_router.router)
 # Vitrine pública: sub-aplicação isolada em /public, com CORS aberto porque o
 # widget roda no domínio do cliente (WordPress, site próprio) — não na nossa
 # origem. A liberação vale só aqui; o resto da API segue restrito ao tenant.
-from app.modules import public_showcase  # noqa: E402
+from app.modules import public_showcase, signup  # noqa: E402
 
 public_app = FastAPI(title="Vitrine pública", docs_url=None, openapi_url=None)
 public_app.add_middleware(
@@ -121,4 +121,5 @@ async def _public_value_error(request: Request, exc: ValueError) -> JSONResponse
 
 
 public_app.include_router(public_showcase.router)
+public_app.include_router(signup.router)
 app.mount("/public", public_app)

@@ -7,6 +7,11 @@ import {
   MockShowcase,
 } from "./mockups";
 
+/** URL do painel — configurável em produção via VITE_APP_URL
+ * (ex.: https://app.clemente.app). Em dev vale relativo. */
+const APP_URL = (import.meta.env.VITE_APP_URL ?? "/app").replace(/\/$/, "");
+const appUrl = (path: string) => `${APP_URL}${path.startsWith("/") ? path : "/" + path}`;
+
 export function Home() {
   return (
     <>
@@ -39,10 +44,10 @@ function TopBar() {
           <a href="#faq">Perguntas</a>
         </nav>
         <div className="cta">
-          <a className="btn btn-ghost" href="/app">
+          <a className="btn btn-ghost" href={appUrl("/entrar")}>
             Entrar
           </a>
-          <a className="btn btn-primary" href="#pricing">
+          <a className="btn btn-primary" href={appUrl("/cadastro")}>
             Criar conta grátis
           </a>
         </div>
@@ -494,7 +499,7 @@ function FinalCta() {
           primeiro imóvel cadastrado.
         </p>
         <div className="actions">
-          <a className="btn btn-primary btn-lg" href="/app/cadastro">
+          <a className="btn btn-primary btn-lg" href={appUrl("/cadastro")}>
             Criar minha imobiliária
           </a>
           <a className="btn btn-ghost btn-lg" href="https://wa.me/5532998510706">
