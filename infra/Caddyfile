@@ -1,0 +1,24 @@
+# Wildcard de subdomínios de tenant. Requer BASE_DOMAIN apontando *.BASE_DOMAIN
+# para o VPS e um provedor DNS suportado para o desafio ACME DNS-01
+# (ex.: Cloudflare — adicionar o plugin no build da imagem quando for para produção).
+
+{$BASE_DOMAIN:localhost}, *.{$BASE_DOMAIN:localhost} {
+	# API
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Webhooks dos provedores (Asaas, ClickSign, Focus NFe, Evolution)
+	handle /webhooks/* {
+		reverse_proxy api:8000
+	}
+
+	# SPA (app interno + portais)
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+
+	encode gzip zstd
+}

@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@import "@fontsource-variable/archivo";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource/ibm-plex-mono/600.css";
+
+/*
+  Sistema visual — "cadastro"
+  ---------------------------------------------------------------------------
+  A base é neutra e fria de propósito: a cor de marca de cada imobiliária é
+  injetada em runtime (--brand-*) e precisa ser a única cor saturada da tela.
+  Identificadores e dinheiro são sempre monoespaçados e alinhados por
+  tabulação — a etiqueta de código (IM-0001, chave A-14) é o elemento que
+  amarra a interface ao objeto físico do balcão da imobiliária.
+*/
+
+@theme {
+  --font-display: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-canvas: #eceef1;
+  --color-surface: #ffffff;
+  --color-sunken: #f5f6f8;
+  --color-ink: #16181d;
+  --color-ink-soft: #454a55;
+  --color-muted: #6b7280;
+  --color-line: #dcdfe4;
+  --color-line-soft: #e9ebee;
+
+  --color-positive: #0e7c66;
+  --color-positive-soft: #e6f4f0;
+  --color-caution: #a1560a;
+  --color-caution-soft: #fdf1e3;
+  --color-critical: #b42318;
+  --color-critical-soft: #fdeceb;
+
+  --radius-tag: 3px;
+}
+
+:root {
+  /* Sobrescritos em runtime pelo branding do tenant. */
+  --brand-primary: #0f766e;
+  --brand-secondary: #134e4a;
+  --brand-accent: #f59e0b;
+  --brand-contrast: #ffffff;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.021em;
+  }
+
+  /* Números em colunas só se comparam se alinharem. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+  }
+
+  ::placeholder {
+    color: var(--color-muted);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Hairline superior das seções de dados, no espírito da ficha impressa. */
+  .rule-top {
+    box-shadow: inset 0 1px 0 var(--color-line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
